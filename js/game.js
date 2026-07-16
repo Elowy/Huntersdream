@@ -84,7 +84,8 @@ const LINE_COLORS = [
   '#ffa53b', '#3bd2ff', '#ff3b6b', '#6aff3b', '#3b8aff',
 ];
 
-const BET_STEPS = [0.10, 0.20, 0.50, 1.00, 2.00, 5.00, 10.00];
+const BET_STEPS = [0.10, 0.30, 0.50, 0.70, 1.00, 2.00, 3.00, 4.00,
+  5.00, 6.00, 7.00, 8.00, 9.00, 10.00];
 const LINES = PAYLINES.length; // 20
 const START_CREDIT = 100.00;
 const FREE_SPINS_AWARD = 10;
@@ -94,7 +95,7 @@ const MAX_STICKY_RESPINS = 6;
 
 const state = {
   credit: START_CREDIT,
-  betIndex: 3,            // 1.00 total bet
+  betIndex: 0,            // 0.10 total bet (minimum)
   grid: [],               // grid[col][row] = symbol id
   spinning: false,
   freeSpins: 0,
@@ -126,6 +127,30 @@ function randomSymbol(col) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/* Assign the visible symbols of reel `col` into state.grid, guaranteeing at
+ * most ONE scatter/Bonus per reel. Held positions (during sticky free-spin
+ * respins) are left untouched but counted toward the limit. */
+function spinReelSymbols(col, holdSet) {
+  let scatters = 0;
+  for (let r = 0; r < ROWS; r++) {
+    if (holdSet && holdSet.has(col + ',' + r) && state.grid[col][r] === 'scatter') {
+      scatters++;
+    }
+  }
+  for (let r = 0; r < ROWS; r++) {
+    if (holdSet && holdSet.has(col + ',' + r)) continue;
+    let sym = randomSymbol(col);
+    if (sym === 'scatter') {
+      if (scatters >= 1) {
+        while (sym === 'scatter') sym = randomSymbol(col); // no second scatter
+      } else {
+        scatters++;
+      }
+    }
+    state.grid[col][r] = sym;
+  }
+}
+
 /* ------------------------- DOM construction ----------------------------- */
 
 const reelsEl = $('#reels');
@@ -144,8 +169,9 @@ function buildBoard() {
       cell.innerHTML = '<div class="sym"></div>';
       reel.appendChild(cell);
       cellEls[c][r] = cell;
-      state.grid[c][r] = randomSymbol(c);
+      state.grid[c][r] = 'nine';
     }
+    spinReelSymbols(c, null);   // fill with the max-one-scatter rule
     reelsEl.appendChild(reel);
   }
   renderGrid();
@@ -217,9 +243,11 @@ function evaluateLine(line) {
   const pay = SYMBOLS[base].pay[count];
   if (!pay) return null;
 
-  // Each active wild in the winning run multiplies the win by 2.
+  // Win is a multiple of the TOTAL bet, so the lowest paying combination
+  // (e.g. three 9s) returns exactly the stake. Each active wild in the
+  // winning run then multiplies that win by 2.
   const multiplier = Math.pow(2, wilds);
-  const win = pay * lineBet() * multiplier;
+  const win = round2(pay * totalBet() * multiplier);
 
   return { symbol: base, count, wilds, multiplier, win };
 }
@@ -268,33 +296,63 @@ function clearWinVisuals() {
       cellEls[c][r].classList.remove('win-cell');
 }
 
+/* Draw a single winning line's polyline and flash its cells. */
+function drawLine(lw) {
+  overlay.setAttribute('viewBox', `0 0 ${COLS} ${ROWS}`);
+  const color = LINE_COLORS[lw.lineIndex % LINE_COLORS.length];
+  const pts = [];
+  for (let col = 0; col < lw.count; col++) {
+    const row = lw.line[col];
+    pts.push(`${col + 0.5},${row + 0.5}`);
+    cellEls[col][row].classList.add('win-cell');
+  }
+  const pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  pl.setAttribute('points', pts.join(' '));
+  pl.setAttribute('fill', 'none');
+  pl.setAttribute('stroke', color);
+  pl.setAttribute('stroke-width', '0.09');
+  pl.setAttribute('stroke-linecap', 'round');
+  pl.setAttribute('stroke-linejoin', 'round');
+  pl.setAttribute('opacity', '0.95');
+  overlay.appendChild(pl);
+}
+
 function showWinLines(result) {
   clearWinVisuals();
   if (!result.lineWins.length) return;
+  result.lineWins.forEach((lw) => drawLine(lw));
+}
 
-  // Size the overlay viewBox to the reels grid.
-  const rect = reelsEl.getBoundingClientRect();
-  overlay.setAttribute('viewBox', `0 0 ${COLS} ${ROWS}`);
+/* Present winning lines ONE BY ONE: each line flashes on its own with its
+ * amount, ticking the win meter and credit up, then a combined total. */
+async function presentWins(result, { fast } = {}) {
+  const wins = [...result.lineWins].sort((a, b) => b.win - a.win);
+  if (!wins.length) return 0;
 
-  result.lineWins.forEach((lw) => {
-    const color = LINE_COLORS[lw.lineIndex % LINE_COLORS.length];
-    // draw polyline through the winning cells only
-    const pts = [];
-    for (let col = 0; col < lw.count; col++) {
-      const row = lw.line[col];
-      pts.push(`${col + 0.5},${row + 0.5}`);
-      cellEls[col][row].classList.add('win-cell');
-    }
-    const pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-    pl.setAttribute('points', pts.join(' '));
-    pl.setAttribute('fill', 'none');
-    pl.setAttribute('stroke', color);
-    pl.setAttribute('stroke-width', '0.09');
-    pl.setAttribute('stroke-linecap', 'round');
-    pl.setAttribute('stroke-linejoin', 'round');
-    pl.setAttribute('opacity', '0.9');
-    overlay.appendChild(pl);
-  });
+  const per = fast ? 600 : 900;
+  state.lastWin = 0;
+  updateMeters();
+
+  for (const lw of wins) {
+    clearWinVisuals();
+    drawLine(lw);
+    state.lastWin = round2(state.lastWin + lw.win);
+    state.credit = round2(state.credit + lw.win);
+    updateMeters();
+    const wildTag = lw.wilds > 0 ? `  🔥×${lw.multiplier}` : '';
+    showWinPopup(`${SYMBOLS[lw.symbol].name} ${lw.count}×  ${fmt(lw.win)} €${wildTag}`);
+    await sleep(per);
+  }
+
+  // Combined view + total.
+  clearWinVisuals();
+  showWinLines(result);
+  const big = state.lastWin >= totalBet() * 15;
+  if (wins.length > 1 || big) {
+    showWinPopup(`${big ? 'NAGY NYEREMÉNY!  ' : 'ÖSSZESEN  '}${fmt(state.lastWin)} €`);
+    await sleep(fast ? 950 : 1400);
+  }
+  return state.lastWin;
 }
 
 function showWinPopup(text) {
@@ -350,9 +408,9 @@ async function animateSpin(holdSet) {
 
   // Stop each reel with a short stagger and a landing bounce.
   for (let c = 0; c < COLS; c++) {
+    spinReelSymbols(c, holdSet);   // at most one scatter per reel
     for (let r = 0; r < ROWS; r++) {
       if (holdSet && holdSet.has(c + ',' + r)) continue;
-      state.grid[c][r] = randomSymbol(c);
       renderCell(c, r);
       const cell = cellEls[c][r];
       cell.classList.remove('spinning');
@@ -418,14 +476,8 @@ async function doSpin() {
 /* Settle a normal (non free-game) spin result. */
 async function settleResult(result, isFree) {
   if (result.totalWin > 0) {
-    state.lastWin = round2(result.totalWin);
-    state.credit += state.lastWin;
-    showWinLines(result);
-    const big = result.totalWin >= totalBet() * 15;
-    showWinPopup(`${big ? 'NAGY NYEREMÉNY! ' : 'NYEREMÉNY '}${fmt(state.lastWin)} €`);
-    updateMeters();
-    await sleep(big ? 1600 : 1000);
-    if (!isFree) hideWinPopup();
+    await presentWins(result, { fast: state.auto });
+    hideWinPopup();
   }
 
   // Scatter -> free spins
@@ -477,9 +529,12 @@ async function freeSpinRound() {
   state.freeSpins--;
   clearStickies();
 
+  const cloneGrid = () => state.grid.map((col) => col.slice());
+
   await animateSpin(null);
   let result = evaluateGrid();
   let bestWin = result.totalWin;
+  let bestGrid = cloneGrid();
   showWinLines(result);
   await sleep(800);
 
@@ -501,6 +556,7 @@ async function freeSpinRound() {
     if (next.totalWin > bestWin) {
       bestWin = next.totalWin;
       result = next;
+      bestGrid = cloneGrid();
       showWinLines(next);
       // grow the held set with the new winning positions
       next.positions.forEach((p) => held.add(p));
@@ -508,21 +564,18 @@ async function freeSpinRound() {
       await sleep(800);
     } else {
       // no higher win -> stop respinning
-      result = next.totalWin >= bestWin ? next : result;
       break;
     }
   }
 
   clearStickies();
 
-  // Pay the best win found this free spin.
+  // Pay the best win found this free spin, line by line.
   if (bestWin > 0) {
-    state.lastWin = round2(bestWin);
-    state.credit += state.lastWin;
-    showWinLines(result);
-    showWinPopup(`INGYENES NYEREMÉNY ${fmt(state.lastWin)} €`);
-    updateMeters();
-    await sleep(1200);
+    // Restore the best grid so the highlighted cells match the payout.
+    state.grid = bestGrid;
+    renderGrid();
+    await presentWins(result, { fast: true });
     hideWinPopup();
   }
 
@@ -568,7 +621,7 @@ function buildPaytable() {
     let rows = '';
     if (Object.keys(def.pay).length) {
       for (const n of [5, 4, 3]) {
-        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét/vonal</span></div>`;
+        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét</span></div>`;
       }
     } else if (def.kind === 'wild') {
       rows = '<div class="pt-row"><span>Helyettesít + ×2 / wild</span></div>';
@@ -612,4 +665,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols };
