@@ -27,12 +27,13 @@
       <!-- Payline numbers left -->
       <div class="paylabels left" id="labelsLeft"></div>
 
-      <div class="reels" id="reels" aria-label="Reels"></div>
+      <div class="reels-wrap">
+        <div class="reels" id="reels" aria-label="Reels"></div>
+        <!-- overlay for drawing winning lines, sized to the reels -->
+        <svg class="line-overlay" id="lineOverlay" preserveAspectRatio="none"></svg>
+      </div>
 
       <div class="paylabels right" id="labelsRight"></div>
-
-      <!-- overlay canvas for drawing winning lines -->
-      <svg class="line-overlay" id="lineOverlay" preserveAspectRatio="none"></svg>
 
       <!-- win popup -->
       <div class="win-popup hidden" id="winPopup"></div>

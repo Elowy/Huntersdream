@@ -612,4 +612,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines };
