@@ -127,6 +127,30 @@ function randomSymbol(col) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/* Assign the visible symbols of reel `col` into state.grid, guaranteeing at
+ * most ONE scatter/Bonus per reel. Held positions (during sticky free-spin
+ * respins) are left untouched but counted toward the limit. */
+function spinReelSymbols(col, holdSet) {
+  let scatters = 0;
+  for (let r = 0; r < ROWS; r++) {
+    if (holdSet && holdSet.has(col + ',' + r) && state.grid[col][r] === 'scatter') {
+      scatters++;
+    }
+  }
+  for (let r = 0; r < ROWS; r++) {
+    if (holdSet && holdSet.has(col + ',' + r)) continue;
+    let sym = randomSymbol(col);
+    if (sym === 'scatter') {
+      if (scatters >= 1) {
+        while (sym === 'scatter') sym = randomSymbol(col); // no second scatter
+      } else {
+        scatters++;
+      }
+    }
+    state.grid[col][r] = sym;
+  }
+}
+
 /* ------------------------- DOM construction ----------------------------- */
 
 const reelsEl = $('#reels');
@@ -145,8 +169,9 @@ function buildBoard() {
       cell.innerHTML = '<div class="sym"></div>';
       reel.appendChild(cell);
       cellEls[c][r] = cell;
-      state.grid[c][r] = randomSymbol(c);
+      state.grid[c][r] = 'nine';
     }
+    spinReelSymbols(c, null);   // fill with the max-one-scatter rule
     reelsEl.appendChild(reel);
   }
   renderGrid();
@@ -383,9 +408,9 @@ async function animateSpin(holdSet) {
 
   // Stop each reel with a short stagger and a landing bounce.
   for (let c = 0; c < COLS; c++) {
+    spinReelSymbols(c, holdSet);   // at most one scatter per reel
     for (let r = 0; r < ROWS; r++) {
       if (holdSet && holdSet.has(c + ',' + r)) continue;
-      state.grid[c][r] = randomSymbol(c);
       renderCell(c, r);
       const cell = cellEls[c][r];
       cell.classList.remove('spinning');
@@ -640,4 +665,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols };
