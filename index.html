@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hunter's Dream 2 — Slot</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="cabinet">
+    <header class="topbar">
+      <div class="logo">
+        <span class="logo-hunters">HUNTER'S</span>
+        <span class="logo-2">2</span>
+        <span class="logo-dream">DREAM</span>
+      </div>
+      <button id="rulesBtn" class="rules-btn" type="button">Szabályok</button>
+    </header>
+
+    <!-- Free spins banner -->
+    <div id="freeBanner" class="free-banner hidden">
+      <span class="fb-title">INGYENES JÁTÉKOK</span>
+      <span class="fb-count"><span id="freeSpinsLeft">0</span> hátra</span>
+    </div>
+
+    <main class="screen">
+      <!-- Payline numbers left -->
+      <div class="paylabels left" id="labelsLeft"></div>
+
+      <div class="reels" id="reels" aria-label="Reels"></div>
+
+      <div class="paylabels right" id="labelsRight"></div>
+
+      <!-- overlay canvas for drawing winning lines -->
+      <svg class="line-overlay" id="lineOverlay" preserveAspectRatio="none"></svg>
+
+      <!-- win popup -->
+      <div class="win-popup hidden" id="winPopup"></div>
+    </main>
+
+    <section class="meters">
+      <div class="meter">
+        <span class="meter-label">KREDIT</span>
+        <span class="meter-value" id="credit">0.00</span>
+      </div>
+      <div class="meter">
+        <span class="meter-label">TÉT</span>
+        <span class="meter-value" id="betValue">1.00</span>
+      </div>
+      <div class="meter win">
+        <span class="meter-label">NYEREMÉNY</span>
+        <span class="meter-value" id="win">0.00</span>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button class="btn bet-btn" id="betMinus" type="button">TÉT −</button>
+      <button class="btn bet-btn" id="betPlus" type="button">TÉT +</button>
+      <button class="btn max-btn" id="maxBet" type="button">MAX TÉT</button>
+      <button class="btn start-btn" id="startBtn" type="button">START</button>
+      <button class="btn auto-btn" id="autoBtn" type="button">AUTO</button>
+    </section>
+
+    <footer class="footer">
+      <span>Az összes érték EUR-ban · 5 tárcsa · 20 nyerővonal</span>
+    </footer>
+  </div>
+
+  <!-- Rules modal -->
+  <div class="modal hidden" id="rulesModal">
+    <div class="modal-box">
+      <button class="modal-close" id="rulesClose" type="button">✕</button>
+      <h2>HUNTER'S DREAM 2 — Szabályok</h2>
+      <p>Hunter's Dream 2 egy 5 tárcsás játék 20 nyerővonallal. A nyeremények
+         balról jobbra fizetnek.</p>
+      <ul>
+        <li>Tét: 0.10 € – 10.00 € között.</li>
+        <li>Vonalanként csak a legmagasabb nyeremény kerül kifizetésre.</li>
+        <li><b>WILD</b> (🔥 tűz) helyettesít minden szimbólumot a Scatter kivételével.
+            Minden aktív WILD a nyerővonalon <b>×2</b>-vel szorozza a nyereményt.</li>
+        <li><b>SCATTER / BONUS</b> (🏚️) csak a 3 középső tárcsán jelenik meg.
+            3 Scatter a 3 középső tárcsán <b>10 ingyenes játékot</b> indít.</li>
+        <li><b>Sticky Free Spins:</b> az ingyenes játékokban a nyerő szimbólumok
+            ragadnak, a tárcsák újrapörögnek a magasabb nyereményekért. Újabb 10
+            ingyenes játék nyerhető az ingyenes játék módban.</li>
+      </ul>
+      <div id="paytableWrap" class="paytable"></div>
+    </div>
+  </div>
+
+  <script src="js/symbols.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
