@@ -150,31 +150,60 @@ body {
   overflow: hidden;
   transition: transform 0.08s;
 }
-.cell .sym-emoji {
-  font-size: clamp(24px, 6vw, 46px);
-  line-height: 1;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.35));
+.cell .sym {
+  width: 82%;
+  height: 82%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.cell .sym-name {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  margin-top: 2px;
-  color: #6b5b3a;
+.cell .sym .art {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
 }
-.cell.card .sym-emoji {
-  font-weight: 900;
-  font-family: Georgia, "Times New Roman", serif;
-  -webkit-text-stroke: 1px rgba(0,0,0,0.35);
+.sym-fallback { font-size: clamp(24px, 6vw, 44px); line-height: 1; }
+
+/* Idle animations ------------------------------------------------------- */
+.art .breathe { transform-box: fill-box; transform-origin: 50% 90%;
+  animation: breathe 3.4s ease-in-out infinite; }
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
 }
-/* Card colours echoing the original machine */
-.cell.sym-nine  .sym-emoji { color: #2f6fe0; }
-.cell.sym-ten   .sym-emoji { color: #e07020; }
-.cell.sym-jack  .sym-emoji { color: #2fa04a; }
-.cell.sym-queen .sym-emoji { color: #b04ad0; }
-.cell.sym-king  .sym-emoji { color: #d02828; }
-.cell.sym-ace   .sym-emoji { color: #d0a020; }
-.cell.card .sym-name { color: #8a7a55; }
+.art .float { transform-box: fill-box; transform-origin: 50% 60%;
+  animation: floaty 3s ease-in-out infinite; }
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-3px) rotate(1deg); }
+}
+.art .gem { transform-box: fill-box; transform-origin: 50% 50%;
+  animation: gemglow 3.6s ease-in-out infinite; }
+@keyframes gemglow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+
+/* Fire (wild) ----------------------------------------------------------- */
+.art-wild .flame { transform-box: fill-box; transform-origin: 50% 100%; }
+.art-wild .f1 { animation: flick1 0.42s ease-in-out infinite alternate; }
+.art-wild .f2 { animation: flick2 0.3s ease-in-out infinite alternate; }
+@keyframes flick1 {
+  from { transform: scaleY(0.94) scaleX(1.03) skewX(-2deg); }
+  to   { transform: scaleY(1.06) scaleX(0.97) skewX(3deg); }
+}
+@keyframes flick2 {
+  from { transform: scaleY(0.9) translateX(-1px); opacity: 0.8; }
+  to   { transform: scaleY(1.08) translateX(1px); opacity: 1; }
+}
+.art-wild .spark { animation: spark 1.4s ease-in-out infinite; }
+.art-wild .s2 { animation-delay: 0.6s; }
+@keyframes spark {
+  0% { transform: translateY(0); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(-16px); opacity: 0; }
+}
 .cell.wild {
   background: linear-gradient(180deg, #1e3a5f, #0d2036);
   color: var(--gold);
@@ -191,13 +220,39 @@ body {
   0% { transform: translateY(-6%); filter: blur(1px); }
   100% { transform: translateY(6%); filter: blur(1px); }
 }
+.cell.land .sym { animation: land 0.34s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes land {
+  0% { transform: translateY(-14%) scale(1.04, 0.9); }
+  60% { transform: translateY(4%) scale(0.98, 1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+
 .cell.win-cell {
-  animation: winflash 0.6s ease-in-out infinite;
+  animation: winflash 0.7s ease-in-out infinite;
   z-index: 2;
 }
+.cell.win-cell .sym { animation: winbounce 0.7s ease-in-out infinite; }
 @keyframes winflash {
-  0%,100% { box-shadow: 0 0 0 rgba(246,196,69,0); transform: scale(1); }
-  50% { box-shadow: 0 0 16px 4px var(--gold); transform: scale(1.06); }
+  0%,100% { box-shadow: 0 0 0 rgba(246,196,69,0); }
+  50% { box-shadow: 0 0 18px 5px var(--gold); }
+}
+@keyframes winbounce {
+  0%,100% { transform: scale(1); }
+  50% { transform: scale(1.14); }
+}
+/* shine sweep across a winning cell */
+.cell.win-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.75) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: shine 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shine {
+  0% { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(120%); }
 }
 .cell.sticky {
   outline: 3px solid var(--green-led);
@@ -364,7 +419,8 @@ body {
   color: var(--gold);
   margin-bottom: 6px;
 }
-.pt-head .e { font-size: 24px; }
+.pt-head .e { width: 34px; height: 34px; display: inline-flex; flex: 0 0 34px; }
+.pt-head .e .art { width: 100%; height: 100%; }
 .pt-row { display: flex; justify-content: space-between; font-size: 12px; color: #ddd; }
 
 .hidden { display: none !important; }

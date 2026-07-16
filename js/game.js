@@ -141,7 +141,7 @@ function buildBoard() {
     for (let r = 0; r < ROWS; r++) {
       const cell = document.createElement('div');
       cell.className = 'cell';
-      cell.innerHTML = '<span class="sym-emoji"></span><span class="sym-name"></span>';
+      cell.innerHTML = '<div class="sym"></div>';
       reel.appendChild(cell);
       cellEls[c][r] = cell;
       state.grid[c][r] = randomSymbol(c);
@@ -165,12 +165,17 @@ function buildBoard() {
   }
 }
 
+const ART = window.SYMBOL_ART || {};
+
+function artFor(id) {
+  return ART[id] || `<div class="sym-fallback">${SYMBOLS[id].emoji}</div>`;
+}
+
 function renderCell(c, r) {
   const id = state.grid[c][r];
   const def = SYMBOLS[id];
   const cell = cellEls[c][r];
-  cell.querySelector('.sym-emoji').textContent = def.emoji;
-  cell.querySelector('.sym-name').textContent = def.name;
+  cell.querySelector('.sym').innerHTML = artFor(id);
   cell.className = 'cell ' + def.kind + ' sym-' + id;
 }
 
@@ -332,26 +337,30 @@ async function animateSpin(holdSet) {
       cellEls[c][r].classList.add('spinning');
     }
   }
-  // Rapidly cycle glyphs, then stop reel by reel left-to-right.
+  // Rapidly cycle symbol art, then stop reel by reel left-to-right.
   for (let f = 0; f < spinFrames; f++) {
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
         if (holdSet && holdSet.has(c + ',' + r)) continue;
-        cellEls[c][r].querySelector('.sym-emoji').textContent =
-          SYMBOLS[randomSymbol(c)].emoji;
+        cellEls[c][r].querySelector('.sym').innerHTML = artFor(randomSymbol(c));
       }
     }
-    await sleep(40);
+    await sleep(45);
   }
 
+  // Stop each reel with a short stagger and a landing bounce.
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
       if (holdSet && holdSet.has(c + ',' + r)) continue;
       state.grid[c][r] = randomSymbol(c);
       renderCell(c, r);
-      cellEls[c][r].classList.remove('spinning');
+      const cell = cellEls[c][r];
+      cell.classList.remove('spinning');
+      cell.classList.remove('land');
+      void cell.offsetWidth;      // restart animation
+      cell.classList.add('land');
     }
-    await sleep(140); // stagger reel stop
+    await sleep(150); // stagger reel stop
   }
 }
 
@@ -566,7 +575,7 @@ function buildPaytable() {
     } else {
       rows = '<div class="pt-row"><span>3× → 10 ingyen játék</span></div>';
     }
-    item.innerHTML = `<div class="pt-head"><span class="e">${def.emoji}</span>${def.name}</div>${rows}`;
+    item.innerHTML = `<div class="pt-head"><span class="e">${artFor(id)}</span>${def.name}</div>${rows}`;
     wrap.appendChild(item);
   }
 }
