@@ -1,0 +1,8 @@
+node_modules/
+package.json
+package-lock.json
+*.log
+_test.mjs
+_shot.mjs
+_screenshot.png
+.DS_Store
