@@ -25,15 +25,11 @@
 
     <main class="screen">
       <!-- Payline numbers left -->
-      <div class="paylabels left" id="labelsLeft"></div>
-
       <div class="reels-wrap">
         <div class="reels" id="reels" aria-label="Reels"></div>
         <!-- overlay for drawing winning lines, sized to the reels -->
         <svg class="line-overlay" id="lineOverlay" preserveAspectRatio="none"></svg>
       </div>
-
-      <div class="paylabels right" id="labelsRight"></div>
 
       <!-- win popup -->
       <div class="win-popup hidden" id="winPopup"></div>
@@ -41,16 +37,16 @@
 
     <section class="meters">
       <div class="meter">
-        <span class="meter-label">KREDIT</span>
-        <span class="meter-value" id="credit">0.00</span>
-      </div>
-      <div class="meter">
         <span class="meter-label">TÉT</span>
-        <span class="meter-value" id="betValue">1.00</span>
+        <span class="meter-value" id="betValue">0.10</span>
       </div>
       <div class="meter win">
         <span class="meter-label">NYEREMÉNY</span>
         <span class="meter-value" id="win">0.00</span>
+      </div>
+      <div class="meter">
+        <span class="meter-label">KREDIT</span>
+        <span class="meter-value" id="credit">0.00</span>
       </div>
     </section>
 

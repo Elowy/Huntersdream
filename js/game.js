@@ -87,7 +87,7 @@ const LINE_COLORS = [
 const BET_STEPS = [0.10, 0.30, 0.50, 0.70, 1.00, 2.00, 3.00, 4.00,
   5.00, 6.00, 7.00, 8.00, 9.00, 10.00];
 const LINES = PAYLINES.length; // 20
-const START_CREDIT = 100.00;
+const START_CREDIT = 10.00;
 const FREE_SPINS_AWARD = 10;
 const MAX_STICKY_RESPINS = 6;
 
@@ -175,20 +175,6 @@ function buildBoard() {
     reelsEl.appendChild(reel);
   }
   renderGrid();
-
-  // Payline number labels
-  const left = $('#labelsLeft');
-  const right = $('#labelsRight');
-  left.innerHTML = '';
-  right.innerHTML = '';
-  for (let r = 0; r < ROWS; r++) {
-    const a = document.createElement('span');
-    a.textContent = r * 2 + 1;
-    left.appendChild(a);
-    const b = document.createElement('span');
-    b.textContent = r * 2 + 2;
-    right.appendChild(b);
-  }
 }
 
 const ART = window.SYMBOL_ART || {};
