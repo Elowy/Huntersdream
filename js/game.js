@@ -21,15 +21,15 @@ const ROWS = 3;
  * weight  : relative frequency on the reel strips
  */
 const SYMBOLS = {
-  // Premium symbols: the hunter and the wolves lead the paytable.
+  // Premium symbols: the hunter and the wolf lead the paytable and pay
+  // already from TWO of a kind.
   hunter:  { emoji: '🏹', name: 'HUNTER',  kind: 'high', weight: 3,
-             pay: { 3: 20, 4: 60, 5: 200 } },
+             pay: { 2: 5, 3: 20, 4: 60, 5: 200 } },
   wolf:    { emoji: '🐺', name: 'WOLF',    kind: 'high', weight: 4,
-             pay: { 3: 12, 4: 32, 5: 80 } },
-  bear:    { emoji: '🐻', name: 'BEAR',    kind: 'high', weight: 5,
+             pay: { 2: 2, 3: 12, 4: 32, 5: 80 } },
+  // Buffalo replaces the old bear + boar pair, keeping the bear paytable.
+  buffalo: { emoji: '🦬', name: 'BUFFALO', kind: 'high', weight: 6,
              pay: { 3: 10, 4: 20, 5: 50 } },
-  boar:    { emoji: '🐗', name: 'BOAR',    kind: 'high', weight: 5,
-             pay: { 3: 8, 4: 16, 5: 40 } },
   eagle:   { emoji: '🦅', name: 'EAGLE',   kind: 'high', weight: 6,
              pay: { 3: 6, 4: 12, 5: 24 } },
   ace:     { emoji: 'A',  name: 'A',       kind: 'card', weight: 8,
@@ -598,7 +598,7 @@ function toggleAuto(force) {
 function buildPaytable() {
   const wrap = $('#paytableWrap');
   wrap.innerHTML = '';
-  const order = ['hunter', 'wolf', 'bear', 'boar', 'eagle', 'ace', 'king',
+  const order = ['hunter', 'wolf', 'buffalo', 'eagle', 'ace', 'king',
     'queen', 'jack', 'ten', 'nine', 'wild', 'scatter'];
   for (const id of order) {
     const def = SYMBOLS[id];
@@ -606,7 +606,7 @@ function buildPaytable() {
     item.className = 'pt-item';
     let rows = '';
     if (Object.keys(def.pay).length) {
-      for (const n of [5, 4, 3]) {
+      for (const n of [5, 4, 3, 2]) {
         if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét</span></div>`;
       }
     } else if (def.kind === 'wild') {
