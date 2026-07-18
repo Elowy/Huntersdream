@@ -50,6 +50,10 @@
       </div>
     </section>
 
+    <button class="gamble-btn hidden" id="gambleBtn" type="button">
+      🂠 DUPLÁZÁS — <span id="gambleAmt">0.00</span> €
+    </button>
+
     <section class="controls">
       <button class="btn bet-btn" id="betMinus" type="button">TÉT −</button>
       <button class="btn bet-btn" id="betPlus" type="button">TÉT +</button>
@@ -85,8 +89,31 @@
             nyeremény, a gold megszorozza a <b>teljes nyereményt</b>. Az ingyenes
             játékban a GOLD <b>ragad</b>. <b>3 vagy több GOLD</b> a pályán <b>5 pörgetést</b>
             indít, amelyben <b>több WILD</b> jelenik meg.</li>
+        <li><b>DUPLÁZÁS:</b> nyeremény után a <b>DUPLÁZÁS</b> gombbal kockáztathatsz —
+            találd el a lap színét (<b>piros</b> vagy <b>fekete</b>). Talált szín esetén
+            a nyeremény <b>duplázódik</b>, tévedésnél <b>elveszik</b>. Bármikor
+            <b>elviheted</b> a nyereményt.</li>
       </ul>
       <div id="paytableWrap" class="paytable"></div>
+    </div>
+  </div>
+
+  <!-- Gamble (double-or-nothing) modal -->
+  <div class="modal hidden" id="gambleModal">
+    <div class="gamble-box">
+      <h2>DUPLÁZÁS</h2>
+      <div class="gamble-amounts">
+        <div><span class="ga-label">TÉT</span><span id="gStake">0.00</span> €</div>
+        <div class="ga-arrow">→</div>
+        <div><span class="ga-label">DUPLA</span><span id="gDouble">0.00</span> €</div>
+      </div>
+      <div class="gamble-card" id="gCard"><span>?</span></div>
+      <div class="gamble-msg" id="gMsg">Válassz színt!</div>
+      <div class="gamble-choices">
+        <button id="gRed" class="g-choice g-red" type="button">PIROS ♥ ♦</button>
+        <button id="gBlack" class="g-choice g-black" type="button">FEKETE ♠ ♣</button>
+      </div>
+      <button id="gCollect" class="g-collect" type="button">ELVISZ</button>
     </div>
   </div>
 

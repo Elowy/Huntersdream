@@ -24,26 +24,26 @@ const SYMBOLS = {
   // Premium symbols: the hunter and the wolf lead the paytable and pay
   // already from TWO of a kind.
   hunter:  { emoji: '🏹', name: 'HUNTER',  kind: 'high', weight: 3,
-             pay: { 2: 5, 3: 20, 4: 60, 5: 200 } },
+             pay: { 2: 20, 3: 40, 4: 60, 5: 200 } },
   wolf:    { emoji: '🐺', name: 'WOLF',    kind: 'high', weight: 4,
-             pay: { 2: 2, 3: 12, 4: 32, 5: 80 } },
-  // Buffalo replaces the old bear + boar pair, keeping the bear paytable.
+             pay: { 2: 8, 3: 16, 4: 32, 5: 80 } },
+  // Buffalo replaces the old bear + boar pair.
   buffalo: { emoji: '🦬', name: 'BUFFALO', kind: 'high', weight: 6,
-             pay: { 3: 10, 4: 20, 5: 50 } },
+             pay: { 3: 8, 4: 16, 5: 32 } },
   eagle:   { emoji: '🦅', name: 'EAGLE',   kind: 'high', weight: 6,
-             pay: { 3: 6, 4: 12, 5: 24 } },
+             pay: { 3: 4, 4: 8, 5: 24 } },
   ace:     { emoji: 'A',  name: 'A',       kind: 'card', weight: 8,
-             pay: { 3: 4, 4: 8, 5: 16 } },
-  king:    { emoji: 'K',  name: 'K',       kind: 'card', weight: 9,
-             pay: { 3: 3, 4: 6, 5: 12 } },
+             pay: { 3: 2, 4: 6, 5: 16 } },
+  king:    { emoji: 'K',  name: 'K',       kind: 'card', weight: 8,
+             pay: { 3: 2, 4: 6, 5: 16 } },
   queen:   { emoji: 'Q',  name: 'Q',       kind: 'card', weight: 9,
-             pay: { 3: 3, 4: 5, 5: 10 } },
-  jack:    { emoji: 'J',  name: 'J',       kind: 'card', weight: 10,
-             pay: { 3: 2, 4: 4, 5: 8 } },
+             pay: { 3: 1, 4: 4, 5: 8 } },
+  jack:    { emoji: 'J',  name: 'J',       kind: 'card', weight: 9,
+             pay: { 3: 1, 4: 4, 5: 8 } },
   ten:     { emoji: '10', name: '10',      kind: 'card', weight: 10,
-             pay: { 3: 2, 4: 3, 5: 5 } },
+             pay: { 3: 1, 4: 2, 5: 4 } },
   nine:    { emoji: '9',  name: '9',       kind: 'card', weight: 10,
-             pay: { 3: 1, 4: 2, 5: 5 } },
+             pay: { 3: 1, 4: 2, 5: 4 } },
   // WILD is the fire — substitutes for all but the scatter and doubles per wild.
   // Uncapped per reel, so it can land 3 stacked in one column.
   wild:    { emoji: '🔥', name: 'WILD',    kind: 'wild', weight: 3, pay: {} },
@@ -109,8 +109,8 @@ const BET_STEPS = [0.10, 0.30, 0.50, 0.70, 1.00, 2.00, 3.00, 4.00,
   25.00, 50.00, 75.00, 100.00, 150.00, 200.00, 1000.00];
 const LINES = PAYLINES.length; // 20
 const START_CREDIT = 10.00;
-const FREE_SPINS_AWARD = 10;
 const MAX_STICKY_RESPINS = 6;
+const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -126,7 +126,11 @@ const state = {
   inGoldGame: false,
   auto: false,
   lastWin: 0,
+  gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
 };
+
+const GAMBLE_MAX_ROUNDS = 5;   // safety cap on consecutive doublings
+const GAMBLE_MAX_WIN = 5000;   // and on the amount
 
 /* ------------------------------ Helpers --------------------------------- */
 
@@ -514,12 +518,48 @@ async function animateSpin(holdSet) {
     }
     await sleep(150); // stagger reel stop
   }
+
+  // Reveal the gold multiplier value with a short rolling animation.
+  await revealGoldMultipliers(holdSet);
+}
+
+/* Roll the gold coins' multiplier numbers, then settle on the real value. */
+async function revealGoldMultipliers(holdSet) {
+  const cells = [];
+  for (const c of GOLD_REELS) {
+    for (let r = 0; r < ROWS; r++) {
+      if (state.grid[c][r] === 'gold' && !(holdSet && holdSet.has(c + ',' + r))) {
+        cells.push([c, r]);
+      }
+    }
+  }
+  if (!cells.length) return;
+  const vals = ['1', '1.5', '2'];
+  for (let f = 0; f < 9; f++) {
+    for (const [c, r] of cells) {
+      const el = cellEls[c][r].querySelector('.gold-mult');
+      if (el) el.textContent = vals[Math.floor(Math.random() * vals.length)] + '×';
+    }
+    await sleep(75);
+  }
+  for (const [c, r] of cells) {
+    const el = cellEls[c][r].querySelector('.gold-mult');
+    if (el) {
+      el.textContent = (state.goldValues[c + ',' + r] || 1) + '×';
+      el.classList.remove('reveal');
+      void el.offsetWidth;
+      el.classList.add('reveal');
+    }
+  }
+  await sleep(200);
 }
 
 /* ------------------------------ Game flow ------------------------------- */
 
 async function doSpin() {
   if (state.spinning) return;
+  if (!$('#gambleModal').classList.contains('hidden')) return; // busy gambling
+  clearGamble();
 
   // A spin is free (no stake) during scatter free games or gold bonus spins.
   const goldSpinNow = state.inGoldGame;
@@ -590,6 +630,8 @@ async function settleResult(result, isFree) {
       await triggerFreeGames(result);
     } else if (result.goldCount >= GOLD_TRIGGER) {
       await triggerGoldGame(result);
+    } else if (result.totalWin > 0 && !state.auto) {
+      offerGamble(result.totalWin);        // base win -> offer double-or-nothing
     }
   } else if (state.inGoldGame && result.goldCount >= GOLD_TRIGGER) {
     await triggerGoldGame(result);         // retrigger more gold spins
@@ -740,6 +782,107 @@ function toggleAuto(force) {
   if (state.auto && !state.spinning && !state.inFreeGame && !state.inGoldGame) doSpin();
 }
 
+/* ------------------------------- Gamble --------------------------------- */
+/* Double-or-nothing on the last base-game win: guess the card colour. */
+
+let gambleRounds = 0;
+let gambleBusy = false;
+
+const CARD_RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+const CARD_SUITS = [
+  { s: '♥', red: true }, { s: '♦', red: true },
+  { s: '♠', red: false }, { s: '♣', red: false },
+];
+
+function offerGamble(amount) {
+  if (amount <= 0 || state.inFreeGame || state.inGoldGame) { clearGamble(); return; }
+  state.gambleAmount = round2(amount);
+  $('#gambleAmt').textContent = fmt(state.gambleAmount);
+  $('#gambleBtn').classList.remove('hidden');
+}
+
+function clearGamble() {
+  state.gambleAmount = 0;
+  $('#gambleBtn').classList.add('hidden');
+  $('#gambleModal').classList.add('hidden');
+}
+
+function openGamble() {
+  if (state.gambleAmount <= 0 || state.spinning || state.inFreeGame || state.inGoldGame) return;
+  gambleRounds = 0;
+  gambleBusy = false;
+  updateGambleUI();
+  const card = $('#gCard');
+  card.className = 'gamble-card';
+  card.innerHTML = '<span>?</span>';
+  $('#gMsg').textContent = 'Válassz színt!';
+  $('#gMsg').className = 'gamble-msg';
+  setGambleChoicesEnabled(true);
+  $('#gambleModal').classList.remove('hidden');
+}
+
+function updateGambleUI() {
+  $('#gStake').textContent = fmt(state.gambleAmount);
+  $('#gDouble').textContent = fmt(round2(state.gambleAmount * 2));
+}
+
+function setGambleChoicesEnabled(on) {
+  $('#gRed').disabled = !on;
+  $('#gBlack').disabled = !on;
+  $('#gCollect').disabled = !on;
+}
+
+async function gambleChoose(guessRed) {
+  if (gambleBusy || state.gambleAmount <= 0) return;
+  gambleBusy = true;
+  setGambleChoicesEnabled(false);
+
+  const rank = CARD_RANKS[Math.floor(Math.random() * CARD_RANKS.length)];
+  const suit = CARD_SUITS[Math.floor(Math.random() * CARD_SUITS.length)];
+  const card = $('#gCard');
+  card.className = 'gamble-card flip';
+  card.innerHTML = '<span>?</span>';
+  await sleep(160);
+  card.innerHTML = `<span class="${suit.red ? 'red' : 'black'}">${rank} ${suit.s}</span>`;
+  card.className = 'gamble-card ' + (suit.red ? 'is-red' : 'is-black');
+
+  if (guessRed === suit.red) {
+    state.credit = round2(state.credit + state.gambleAmount);   // double
+    state.gambleAmount = round2(state.gambleAmount * 2);
+    state.lastWin = state.gambleAmount;
+    gambleRounds++;
+    updateGambleUI();
+    updateMeters();
+    $('#gMsg').textContent = `NYERTÉL!  ${fmt(state.gambleAmount)} €`;
+    $('#gMsg').className = 'gamble-msg win';
+    await sleep(1100);
+    if (gambleRounds >= GAMBLE_MAX_ROUNDS || state.gambleAmount >= GAMBLE_MAX_WIN) {
+      $('#gMsg').textContent = 'Maximum elérve — jóváírva.';
+      await sleep(1000);
+      gambleCollect();
+    } else {
+      $('#gMsg').textContent = 'Mehet tovább, vagy elvisz?';
+      $('#gMsg').className = 'gamble-msg';
+      setGambleChoicesEnabled(true);
+      gambleBusy = false;
+    }
+  } else {
+    state.credit = round2(state.credit - state.gambleAmount);   // lose it
+    state.gambleAmount = 0;
+    state.lastWin = 0;
+    updateMeters();
+    $('#gMsg').textContent = 'VESZTETTÉL';
+    $('#gMsg').className = 'gamble-msg lose';
+    await sleep(1500);
+    clearGamble();
+  }
+}
+
+function gambleCollect() {
+  clearGamble();   // amount already in credit
+  updateMeters();
+}
+
 /* ------------------------------ Paytable UI ----------------------------- */
 
 function buildPaytable() {
@@ -793,9 +936,21 @@ function init() {
     if (e.target.id === 'rulesModal') $('#rulesModal').classList.add('hidden');
   });
 
+  // Gamble (double-or-nothing) wiring.
+  $('#gambleBtn').addEventListener('click', openGamble);
+  $('#gRed').addEventListener('click', () => gambleChoose(true));
+  $('#gBlack').addEventListener('click', () => gambleChoose(false));
+  $('#gCollect').addEventListener('click', () => { if (!gambleBusy) gambleCollect(); });
+  $('#gambleModal').addEventListener('click', (e) => {
+    if (e.target.id === 'gambleModal' && !gambleBusy) gambleCollect();
+  });
+
   // Keyboard: space to spin
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); if (!state.spinning) doSpin(); }
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!state.spinning && $('#gambleModal').classList.contains('hidden')) doSpin();
+    }
   });
 }
 
@@ -803,4 +958,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect };
