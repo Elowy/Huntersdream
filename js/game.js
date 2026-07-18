@@ -179,7 +179,42 @@ function buildBoard() {
 
 const ART = window.SYMBOL_ART || {};
 
+/* Optional bitmap art. Drop PNG files into the images/ folder using these
+ * exact base names and the game uses them instead of the built-in SVG.
+ * If a file is missing, the SVG drawing stays as the fallback. */
+const IMAGE_BASENAMES = {
+  nine: '9', ten: '10', ace: 'A', jack: 'J', queen: 'Q', king: 'K',
+  hunter: 'Hunter', wolf: 'Wolf', buffalo: 'Buffalo', eagle: 'Eagle',
+  wild: 'Wild', scatter: 'Scatter',
+};
+const symbolImage = {}; // id -> resolved image url (once found)
+
+function probeImages() {
+  const exts = ['png', 'PNG'];
+  const jobs = Object.entries(IMAGE_BASENAMES).map(([id, base]) => {
+    const names = [...new Set([base, base.toLowerCase()])];
+    const candidates = [];
+    for (const n of names) for (const e of exts) candidates.push(`images/${n}.${e}`);
+    return new Promise((resolve) => {
+      let i = 0;
+      const next = () => {
+        if (i >= candidates.length) return resolve(false);
+        const url = candidates[i++];
+        const img = new Image();
+        img.onload = () => { symbolImage[id] = url; resolve(true); };
+        img.onerror = next;
+        img.src = url;
+      };
+      next();
+    });
+  });
+  return Promise.all(jobs);
+}
+
 function artFor(id) {
+  if (symbolImage[id]) {
+    return `<img class="sym-img" src="${symbolImage[id]}" alt="${SYMBOLS[id].name}" draggable="false">`;
+  }
   return ART[id] || `<div class="sym-fallback">${SYMBOLS[id].emoji}</div>`;
 }
 
@@ -625,6 +660,9 @@ function init() {
   buildBoard();
   buildPaytable();
   updateMeters();
+
+  // Load any bitmap art from images/, then re-render so it replaces the SVG.
+  probeImages().then(() => { renderGrid(); buildPaytable(); });
 
   $('#startBtn').addEventListener('click', () => {
     if (state.auto) toggleAuto(false);

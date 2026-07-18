@@ -187,6 +187,15 @@ body::after {
   filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
 }
 .sym-fallback { font-size: clamp(24px, 6vw, 44px); line-height: 1; }
+.cell .sym .sym-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+  -webkit-user-select: none;
+  user-select: none;
+}
 
 /* Idle animations ------------------------------------------------------- */
 .art .breathe { transform-box: fill-box; transform-origin: 50% 90%;
