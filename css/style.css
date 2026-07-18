@@ -467,6 +467,30 @@ body::after {
 .pt-head .e .art { width: 100%; height: 100%; }
 .pt-row { display: flex; justify-content: space-between; font-size: 12px; color: #ddd; }
 
+/* ---------- RTP slider ---------- */
+.rtp-control {
+  background: #0a0d14;
+  border: 2px solid var(--gold-deep);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.rtp-control label { display: block; font-size: 14px; margin-bottom: 8px; color: #e7d3a0; }
+.rtp-control label b { color: var(--gold); font-size: 18px; }
+.rtp-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.rtp-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #9a8a5a;
+  margin-top: 2px;
+}
+.rtp-note { font-size: 12px !important; color: #c9b98a !important; margin-top: 8px !important; }
+
 /* ---------- Gamble (double-or-nothing) ---------- */
 .gamble-btn {
   width: 100%;

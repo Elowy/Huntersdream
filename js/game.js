@@ -112,6 +112,13 @@ const START_CREDIT = 10.00;
 const MAX_STICKY_RESPINS = 6;
 const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 
+/* Payout balance (RTP). The paytable's natural return at scale 1.0 was
+ * measured (~581%), so every win is scaled to hit the chosen target RTP.
+ * Adjustable with a slider from 80% up to 120%. */
+const BASE_RTP = 5.81;
+const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent
+function winScale() { return (state.rtp / 100) / BASE_RTP; }
+
 /* ------------------------------- State ---------------------------------- */
 
 const state = {
@@ -127,6 +134,7 @@ const state = {
   auto: false,
   lastWin: 0,
   gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
+  rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
 };
 
 const GAMBLE_MAX_ROUNDS = 5;   // safety cap on consecutive doublings
@@ -304,11 +312,10 @@ function evaluateLine(line) {
   const pay = SYMBOLS[base].pay[count];
   if (!pay) return null;
 
-  // Win is a multiple of the TOTAL bet, so the lowest paying combination
-  // (e.g. three 9s) returns exactly the stake. Each active wild in the
-  // winning run then multiplies that win by 2.
+  // Win = paytable × total bet × wild multiplier, then scaled by the RTP
+  // setting so the game balances to the chosen return.
   const multiplier = Math.pow(2, wilds);
-  const win = round2(pay * totalBet() * multiplier);
+  const win = round2(pay * totalBet() * multiplier * winScale());
 
   return { symbol: base, count, wilds, multiplier, win };
 }
@@ -782,6 +789,26 @@ function toggleAuto(force) {
   if (state.auto && !state.spinning && !state.inFreeGame && !state.inGoldGame) doSpin();
 }
 
+/* ------------------------------- RTP slider ----------------------------- */
+
+function setRtp(percent) {
+  const p = Math.round(Math.max(RTP_MIN, Math.min(RTP_MAX, percent)));
+  state.rtp = p;
+  const slider = $('#rtpSlider');
+  if (slider) slider.value = p;
+  const val = $('#rtpValue');
+  if (val) val.textContent = p + '%';
+  try { localStorage.setItem('hd_rtp', String(p)); } catch (e) { /* ignore */ }
+}
+
+function loadRtp() {
+  try {
+    const v = parseInt(localStorage.getItem('hd_rtp'), 10);
+    if (v >= RTP_MIN && v <= RTP_MAX) return v;
+  } catch (e) { /* ignore */ }
+  return RTP_DEFAULT;
+}
+
 /* ------------------------------- Gamble --------------------------------- */
 /* Double-or-nothing on the last base-game win: guess the card colour. */
 
@@ -936,6 +963,10 @@ function init() {
     if (e.target.id === 'rulesModal') $('#rulesModal').classList.add('hidden');
   });
 
+  // RTP / payout balance slider.
+  setRtp(loadRtp());
+  $('#rtpSlider').addEventListener('input', (e) => setRtp(+e.target.value));
+
   // Gamble (double-or-nothing) wiring.
   $('#gambleBtn').addEventListener('click', openGamble);
   $('#gRed').addEventListener('click', () => gambleChoose(true));
@@ -958,4 +989,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, winScale, BASE_RTP };
