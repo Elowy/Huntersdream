@@ -59,10 +59,11 @@ const SYMBOLS = {
 const MIDDLE_REELS = [1, 2, 3];
 const GOLD_REELS = [0, 4];
 
-/* Weighted 1-9 multiplier for a gold symbol (higher = rarer). */
+/* Weighted gold multiplier value: 1, 1.5 or 2x (higher = rarer, max 2x). */
 const GOLD_MULT_WEIGHTS = [
-  [1, 30], [2, 22], [3, 16], [4, 11], [5, 8], [6, 5], [7, 4], [8, 2], [9, 2],
+  [1, 60], [1.5, 28], [2, 12],
 ];
+const GOLD_MAX_MULT = 2;
 function randomGoldMult() {
   const total = GOLD_MULT_WEIGHTS.reduce((s, [, w]) => s + w, 0);
   let n = Math.random() * total;
@@ -338,22 +339,23 @@ function evaluateGrid() {
     }
   }
 
-  // Gold: only on the end reels. Sum the multiplier values (capped at 9x).
+  // Gold: only on the end reels. The applied multiplier is the highest gold
+  // value on the board (max 2x), and it multiplies the whole win.
   let goldCount = 0;
-  let goldSum = 0;
+  let goldMax = 1;
   const goldPositions = [];
   for (const c of GOLD_REELS) {
     for (let r = 0; r < ROWS; r++) {
       if (state.grid[c][r] === 'gold') {
         goldCount++;
-        goldSum += state.goldValues[c + ',' + r] || 1;
+        goldMax = Math.max(goldMax, state.goldValues[c + ',' + r] || 1);
         goldPositions.push(c + ',' + r);
       }
     }
   }
-  const goldMultiplier = goldCount > 0 ? Math.min(9, goldSum) : 1;
+  const goldMultiplier = goldCount > 0 ? Math.min(GOLD_MAX_MULT, goldMax) : 1;
 
-  // Apply the gold multiplier to every winning line (and the total).
+  // Apply the gold multiplier to the whole win (every winning line + total).
   if (goldMultiplier > 1 && lineWins.length) {
     totalWin = 0;
     for (const lw of lineWins) {
@@ -361,6 +363,7 @@ function evaluateGrid() {
       lw.win = round2(lw.win * goldMultiplier);
       totalWin += lw.win;
     }
+    totalWin = round2(totalWin);
   }
 
   return {
@@ -666,7 +669,8 @@ async function freeSpinRound() {
   showWinLines(result);
   await sleep(800);
 
-  let held = new Set(result.positions);
+  // Gold sticks during the scatter free game (keeps its multiplier).
+  let held = new Set([...result.positions, ...result.goldPositions]);
   let respins = 0;
 
   while (held.size > 0 && held.size < COLS * ROWS && respins < MAX_STICKY_RESPINS) {
@@ -680,6 +684,7 @@ async function freeSpinRound() {
 
     await animateSpin(held);
     const next = evaluateGrid();
+    next.goldPositions.forEach((p) => held.add(p)); // any new gold also sticks
 
     if (next.totalWin > bestWin) {
       bestWin = next.totalWin;
@@ -754,7 +759,7 @@ function buildPaytable() {
     } else if (def.kind === 'wild') {
       rows = '<div class="pt-row"><span>Helyettesít + ×2 / wild</span></div>';
     } else if (def.kind === 'gold') {
-      rows = '<div class="pt-row"><span>1–9× szorzó · 3× → 5 wild pörgetés</span></div>';
+      rows = '<div class="pt-row"><span>1 / 1.5 / 2× szorzó · 3× → 5 wild pörgetés</span></div>';
     } else {
       rows = '<div class="pt-row"><span>3× → 10 ingyen játék</span></div>';
     }
