@@ -59,6 +59,49 @@
 </svg>`;
   }
 
+  /* ---- Carved-wood card with gold banding and rivets ------------------- */
+  function woodCard(letter, id, w1, w2) {
+    const two = letter.length > 1;
+    const fs = two ? 44 : 60;
+    const y = two ? 64 : 66;
+    const T = (fill, stroke, sw) =>
+      `<text x="50" y="${y}" text-anchor="middle" font-family="Arial Black, 'Arial', sans-serif"
+             font-weight="900" font-size="${fs}" fill="${fill}"${stroke
+        ? ` stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round" paint-order="stroke"` : ''}>${letter}</text>`;
+    const rivet = (x, yy) =>
+      `<circle cx="${x}" cy="${yy}" r="2.1" fill="#ffe488" stroke="#6a4810" stroke-width="0.8"/>
+       <circle cx="${x - 0.5}" cy="${yy - 0.5}" r="0.7" fill="#fff7d0"/>`;
+    return `
+<svg class="art art-card" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="wcw_${id}" x1="0.1" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="${w1}"/>
+      <stop offset=".5" stop-color="${w2}"/>
+      <stop offset="1" stop-color="${w1}"/>
+    </linearGradient>
+    <linearGradient id="wcg_${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe692"/>
+      <stop offset=".45" stop-color="#e0a838"/>
+      <stop offset=".55" stop-color="#a8781a"/>
+      <stop offset="1" stop-color="#f2c65a"/>
+    </linearGradient>
+    <radialGradient id="wcd_${id}" cx="50%" cy="45%" r="60%">
+      <stop offset="0" stop-color="${w1}" stop-opacity=".32"/>
+      <stop offset="100%" stop-color="${w1}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g class="gem">
+    <circle cx="50" cy="50" r="42" fill="url(#wcd_${id})"/>
+    ${T('none', '#2e1c06', 14)}
+    ${T('url(#wcw_' + id + ')', 'url(#wcg_' + id + ')', 8)}
+    ${T('url(#wcw_' + id + ')', '', 0)}
+    <g opacity=".9">
+      ${rivet(34, 30)}${rivet(66, 30)}${rivet(30, 66)}${rivet(70, 66)}${rivet(50, 22)}${rivet(50, 80)}
+    </g>
+  </g>
+</svg>`;
+  }
+
   const ART = {
     /* ---------------- WILD — a roaring camp fire --------------------- */
     wild: `
@@ -266,161 +309,130 @@
   </g>
 </svg>`,
 
-    /* ---------------- BEAR — brown bear ----------------------------- */
-    bear: `
+    /* ---------------- BUFFALO — bison on a grassy mound -------------- */
+    buffalo: `
 <svg class="art" viewBox="0 0 100 100">
   <defs>
-    ${disc('bDisc', '#c98a45')}
-    ${softShadow('brSh')}
-    <radialGradient id="bearG" cx="50%" cy="34%" r="74%">
-      <stop offset="0" stop-color="#c1935a"/><stop offset="55%" stop-color="#8a5c30"/><stop offset="1" stop-color="#553318"/>
+    ${softShadow('bfSh')}
+    <radialGradient id="bfGrass" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#7cbf52"/><stop offset="70%" stop-color="#3f8a34"/><stop offset="100%" stop-color="#2a5f24"/>
     </radialGradient>
-    <radialGradient id="bearEar" cx="50%" cy="40%" r="70%">
-      <stop offset="0" stop-color="#9a6f3f"/><stop offset="1" stop-color="#472d15"/>
+    <radialGradient id="bfBody" cx="42%" cy="34%" r="72%">
+      <stop offset="0" stop-color="#8a5f38"/><stop offset="55%" stop-color="#5f3f22"/><stop offset="100%" stop-color="#38240f"/>
     </radialGradient>
-    <radialGradient id="bearMuz" cx="50%" cy="40%" r="65%">
-      <stop offset="0" stop-color="#e7c799"/><stop offset="1" stop-color="#c39a63"/>
-    </radialGradient>
-  </defs>
-  <circle cx="50" cy="50" r="44" fill="url(#bDisc)"/>
-  <g class="breathe" filter="url(#brSh)">
-    <circle cx="26" cy="31" r="13.5" fill="url(#bearEar)" stroke="#3a2410" stroke-width="2.2"/>
-    <circle cx="74" cy="31" r="13.5" fill="url(#bearEar)" stroke="#3a2410" stroke-width="2.2"/>
-    <circle cx="26" cy="31" r="6" fill="#b98a5c"/>
-    <circle cx="74" cy="31" r="6" fill="#b98a5c"/>
-    <circle cx="50" cy="57" r="32" fill="url(#bearG)" stroke="#3a2410" stroke-width="2.2"/>
-    <!-- forehead & cheek shading -->
-    <path d="M50 28 C36 28 28 40 28 52 C40 47 60 47 72 52 C72 40 64 28 50 28 Z" fill="#cf9f66" opacity=".3"/>
-    <path d="M22 60 C24 74 34 84 44 87 C36 78 31 68 30 58 Z" fill="#4a3016" opacity=".4"/>
-    <path d="M78 60 C76 74 66 84 56 87 C64 78 69 68 70 58 Z" fill="#4a3016" opacity=".4"/>
-    <!-- fur strokes -->
-    <g stroke="#4a3016" stroke-width="0.8" fill="none" opacity=".45" stroke-linecap="round">
-      <path d="M34 40 q5 -3 10 -1"/><path d="M66 40 q-5 -3 -10 -1"/>
-      <path d="M30 52 q6 0 10 2"/><path d="M70 52 q-6 0 -10 2"/>
-      <path d="M32 66 q6 1 9 4"/><path d="M68 66 q-6 1 -9 4"/>
-    </g>
-    <ellipse cx="50" cy="69" rx="18" ry="14" fill="url(#bearMuz)"/>
-    <!-- eyes -->
-    <ellipse cx="41" cy="51" rx="4.2" ry="4.6" fill="#241608"/>
-    <ellipse cx="59" cy="51" rx="4.2" ry="4.6" fill="#241608"/>
-    <circle cx="42.4" cy="49.4" r="1.4" fill="#fff" opacity=".9"/>
-    <circle cx="60.4" cy="49.4" r="1.4" fill="#fff" opacity=".9"/>
-    <path d="M37 46 q4 -3 8 -1 M55 45 q4 -2 8 1" stroke="#2a1a0c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-    <!-- nose -->
-    <path d="M43 60 Q50 56 57 60 Q57 66 50 67 Q43 66 43 60 Z" fill="#241608"/>
-    <ellipse cx="47" cy="60" rx="1.8" ry="1.1" fill="#5a4632" opacity=".7"/>
-    <path d="M50 67 v6 M50 73 q-5 3 -9 1 M50 73 q5 3 9 1" stroke="#241608" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-  </g>
-</svg>`,
-
-    /* ---------------- BOAR — wild boar with tusks ------------------- */
-    boar: `
-<svg class="art" viewBox="0 0 100 100">
-  <defs>
-    ${disc('boDisc', '#8a6a48')}
-    ${softShadow('boSh')}
-    <radialGradient id="boarG" cx="50%" cy="32%" r="76%">
-      <stop offset="0" stop-color="#857057"/><stop offset="55%" stop-color="#4e3d2c"/><stop offset="1" stop-color="#241a12"/>
-    </radialGradient>
-    <linearGradient id="tuskG" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d0c2a2"/>
+    <linearGradient id="bfHorn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#efe6cc"/><stop offset="1" stop-color="#b8a678"/>
     </linearGradient>
-    <radialGradient id="boarEye" cx="50%" cy="45%" r="60%">
-      <stop offset="0" stop-color="#ffd35a"/><stop offset="100%" stop-color="#d07a10"/>
-    </radialGradient>
   </defs>
-  <circle cx="50" cy="50" r="44" fill="url(#boDisc)"/>
-  <g class="breathe" filter="url(#boSh)">
-    <path d="M31 33 L23 15 L43 29 Z" fill="#2f241a" stroke="#160f0a" stroke-width="1.4" stroke-linejoin="round"/>
-    <path d="M69 33 L77 15 L57 29 Z" fill="#2f241a" stroke="#160f0a" stroke-width="1.4" stroke-linejoin="round"/>
-    <!-- bristly mane -->
-    <path d="M50 22 l-4 8 4 -3 3 8 3 -8 4 3 -4 -8 Z" fill="#5a4632"/>
-    <path d="M50 24 C33 24 24 39 26 57 C28 75 40 86 50 86 C60 86 72 75 74 57 C76 39 67 24 50 24 Z"
-          fill="url(#boarG)" stroke="#160f0a" stroke-width="2.2"/>
-    <!-- bristle texture on top -->
-    <g stroke="#2a2016" stroke-width="0.9" fill="none" opacity=".6" stroke-linecap="round">
-      <path d="M40 32 l-2 -6"/><path d="M46 30 l-1 -7"/><path d="M50 29 l0 -7"/><path d="M54 30 l1 -7"/><path d="M60 32 l2 -6"/>
-    </g>
-    <path d="M50 30 C38 30 30 42 31 54 C40 50 60 50 69 54 C70 42 62 30 50 30 Z" fill="#6b5540" opacity=".35"/>
-    <!-- brow -->
-    <path d="M37 44 L48 46 M63 44 L52 46" stroke="#100b07" stroke-width="2.2" stroke-linecap="round"/>
-    <!-- eyes -->
-    <ellipse cx="41" cy="52" rx="4" ry="3.6" fill="url(#boarEye)"/>
-    <ellipse cx="59" cy="52" rx="4" ry="3.6" fill="url(#boarEye)"/>
-    <circle cx="41" cy="52.5" r="1.7" fill="#120c07"/>
-    <circle cx="59" cy="52.5" r="1.7" fill="#120c07"/>
-    <circle cx="41.7" cy="51.6" r="0.6" fill="#fff"/>
-    <circle cx="59.7" cy="51.6" r="0.6" fill="#fff"/>
-    <!-- snout -->
-    <ellipse cx="50" cy="71" rx="13" ry="10" fill="#4e3d2c"/>
-    <ellipse cx="50" cy="71" rx="13" ry="10" fill="none" stroke="#241a12" stroke-width="1.2"/>
-    <path d="M50 63 v16" stroke="#33261a" stroke-width="1" opacity=".5"/>
-    <ellipse cx="45" cy="71" rx="2.4" ry="3.4" fill="#140d08"/>
-    <ellipse cx="55" cy="71" rx="2.4" ry="3.4" fill="#140d08"/>
-    <!-- tusks -->
-    <path d="M39 77 C30 81 29 62 37 58" fill="none" stroke="url(#tuskG)" stroke-width="4.8" stroke-linecap="round"/>
-    <path d="M61 77 C70 81 71 62 63 58" fill="none" stroke="url(#tuskG)" stroke-width="4.8" stroke-linecap="round"/>
-    <path d="M39 77 C34 79 33 68 36 62" fill="none" stroke="#000" stroke-width="1" opacity=".2"/>
-    <g stroke="#160f0a" stroke-width="0.8" fill="none" opacity=".5" stroke-linecap="round">
-      <path d="M31 47 q-6 -2 -9 1"/><path d="M69 47 q6 -2 9 1"/>
-      <path d="M30 60 q-6 1 -8 4"/><path d="M70 60 q6 1 8 4"/>
+  <ellipse cx="50" cy="74" rx="43" ry="17" fill="url(#bfGrass)"/>
+  <g fill="#2f6a28" opacity=".7">
+    <path d="M18 72 l3 -7 3 7 Z"/><path d="M78 72 l3 -7 3 7 Z"/>
+    <path d="M64 78 q3 -6 6 0 Z"/><path d="M28 79 q3 -6 6 0 Z"/>
+  </g>
+  <g class="breathe" filter="url(#bfSh)">
+    <!-- far legs -->
+    <rect x="42" y="63" width="5.5" height="15" rx="1.6" fill="#2a1c10"/>
+    <rect x="66" y="63" width="5.5" height="15" rx="1.6" fill="#2a1c10"/>
+    <!-- body mass with front hump -->
+    <path d="M32 61 C27 57 26 45 32 39 C37 34 43 34 47 38 C51 34 60 37 67 40 C77 43 83 49 82 56
+             C81 63 73 65 63 65 L40 65 C36 65 34 63 32 61 Z" fill="url(#bfBody)"/>
+    <!-- rear lighter highlight -->
+    <path d="M64 45 C74 45 80 50 79 56 C78 62 72 64 65 64 L60 64 C63 57 63 51 64 45 Z" fill="#8a6038" opacity=".4"/>
+    <!-- shaggy dark forequarter cape -->
+    <path d="M32 61 C27 56 26 45 32 39 C37 34 43 34 47 38 C45 46 45 56 47 65 L40 65 C36 65 34 63 32 61 Z" fill="#251810"/>
+    <path d="M46 40 C45 48 45 57 47 65" stroke="#3f2a16" stroke-width="1" fill="none" opacity=".6"/>
+    <!-- near legs -->
+    <rect x="36" y="64" width="6.2" height="15" rx="1.6" fill="#3a2814"/>
+    <rect x="59" y="64" width="6.2" height="15" rx="1.6" fill="#3a2814"/>
+    <rect x="36" y="76" width="6.2" height="3.2" rx="1" fill="#140d07"/>
+    <rect x="59" y="76" width="6.2" height="3.2" rx="1" fill="#140d07"/>
+    <!-- head low, front-left -->
+    <path d="M19 58 C14 54 14 46 20 43 C26 40 33 43 35 50 C36 59 30 64 25 63 C22 62.5 20 61 19 58 Z" fill="#1f1409"/>
+    <!-- shaggy forehead tufts -->
+    <path d="M21 45 q3 -4 7 -3 q-2 3 -1 6 q-4 -2 -6 -3 Z" fill="#150d06"/>
+    <!-- beard -->
+    <path d="M22 60 C20 70 26 74 28 70 C27 66 26 62 26 59 Z" fill="#140c06"/>
+    <!-- horn -->
+    <path d="M29 43 C32 39 37 40 37 43 C34 43 32 44 31 46 Z" fill="url(#bfHorn)"/>
+    <path d="M29.5 43 C32 40 36 41 36.5 43" stroke="#8a7854" stroke-width="0.7" fill="none"/>
+    <!-- eye -->
+    <circle cx="27" cy="49.5" r="1.8" fill="#0a0603"/>
+    <circle cx="27.6" cy="48.8" r="0.6" fill="#8a6534"/>
+    <!-- muzzle / nose -->
+    <ellipse cx="18.5" cy="55" rx="3.2" ry="2.6" fill="#0e0805"/>
+    <ellipse cx="17.5" cy="54" rx="0.8" ry="0.6" fill="#4a3420"/>
+    <!-- fur texture -->
+    <g stroke="#2a1c10" stroke-width="0.7" opacity=".4" fill="none" stroke-linecap="round">
+      <path d="M40 43 q3 5 2 10"/><path d="M49 42 q3 5 2 11"/><path d="M60 47 q2 5 1 9"/><path d="M70 51 q2 4 1 8"/>
     </g>
   </g>
 </svg>`,
 
-    /* ---------------- EAGLE — bald eagle head ----------------------- */
+    /* ---------------- EAGLE — bald eagle in flight ------------------ */
     eagle: `
 <svg class="art" viewBox="0 0 100 100">
   <defs>
-    ${disc('eDisc', '#5f77a0')}
     ${softShadow('eaSh')}
-    <linearGradient id="eBody" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7a5e3a"/><stop offset="1" stop-color="#33260f"/>
-    </linearGradient>
-    <radialGradient id="eHead" cx="50%" cy="40%" r="65%">
-      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cfd9e6"/>
+    <radialGradient id="eSky" cx="50%" cy="38%" r="70%">
+      <stop offset="0" stop-color="#bfe0f5"/><stop offset="60%" stop-color="#7db6e0"/><stop offset="100%" stop-color="#4d8ec4"/>
     </radialGradient>
+    <linearGradient id="eWing" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#6b4f30"/><stop offset="1" stop-color="#33260f"/>
+    </linearGradient>
+    <linearGradient id="eBodyG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a4126"/><stop offset="1" stop-color="#2c1f0e"/>
+    </linearGradient>
     <linearGradient id="eBeak" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffd23b"/><stop offset="1" stop-color="#d67e10"/>
     </linearGradient>
   </defs>
-  <circle cx="50" cy="50" r="44" fill="url(#eDisc)"/>
+  <circle cx="50" cy="50" r="45" fill="url(#eSky)"/>
+  <g fill="#ffffff" opacity=".75">
+    <ellipse cx="24" cy="66" rx="12" ry="4"/><ellipse cx="74" cy="70" rx="14" ry="4.5"/><ellipse cx="70" cy="30" rx="9" ry="3"/>
+  </g>
   <g class="float" filter="url(#eaSh)">
-    <!-- body / neck feathers -->
-    <path d="M50 94 C31 94 21 79 27 60 C34 66 66 66 73 60 C79 79 69 94 50 94 Z" fill="url(#eBody)"/>
-    <g fill="#2a1f0e" opacity=".5">
-      <path d="M34 70 q5 7 1 14 -5 -6 -1 -14"/><path d="M44 73 q5 7 1 14 -5 -6 -1 -14"/>
-      <path d="M56 73 q5 7 1 14 -5 -6 -1 -14"/><path d="M65 70 q5 7 1 14 -5 -6 -1 -14"/>
+    <!-- LEFT wing (spread, feathered tips) -->
+    <path d="M49 50 C40 42 28 33 15 30 C9 29 6 33 10 37 C17 41 24 45 29 51
+             C21 48 13 49 8 54 C15 53 23 54 30 57
+             C24 57 18 61 15 66 C22 62 31 61 38 62 C44 58 47 54 49 51 Z" fill="url(#eWing)"/>
+    <!-- RIGHT wing -->
+    <path d="M51 50 C60 42 72 33 85 30 C91 29 94 33 90 37 C83 41 76 45 71 51
+             C79 48 87 49 92 54 C85 53 77 54 70 57
+             C76 57 82 61 85 66 C78 62 69 61 62 62 C56 58 53 54 51 51 Z" fill="url(#eWing)"/>
+    <!-- wing feather separations -->
+    <g stroke="#241a0c" stroke-width="0.9" fill="none" opacity=".55" stroke-linecap="round">
+      <path d="M30 40 q-8 3 -16 -1"/><path d="M33 48 q-10 2 -20 3"/><path d="M36 55 q-9 3 -17 6"/>
+      <path d="M70 40 q8 3 16 -1"/><path d="M67 48 q10 2 20 3"/><path d="M64 55 q9 3 17 6"/>
     </g>
-    <path d="M31 62 q19 8 38 0" fill="none" stroke="#e8ecf1" stroke-width="2" opacity=".5"/>
+    <!-- tail -->
+    <path d="M44 74 L56 74 L54 90 L50 92 L46 90 Z" fill="#f4f7fa"/>
+    <path d="M50 74 L50 91" stroke="#c9d4df" stroke-width="0.8"/>
+    <!-- body -->
+    <path d="M50 45 C43 45 41 54 43 64 C45 73 50 78 50 78 C50 78 55 73 57 64 C59 54 57 45 50 45 Z" fill="url(#eBodyG)"/>
+    <g stroke="#1e1508" stroke-width="0.8" fill="none" opacity=".5"><path d="M46 58 q4 4 8 0"/><path d="M46 65 q4 4 8 0"/></g>
+    <!-- talons -->
+    <path d="M46 76 l-2 6 M50 78 l0 6 M54 76 l2 6" stroke="#e0a020" stroke-width="2" stroke-linecap="round"/>
     <!-- white head -->
-    <path d="M54 19 C35 18 23 32 25 50 C26 60 39 66 57 64 C71 62 77 53 77 43 C77 29 68 21 54 19 Z" fill="url(#eHead)"/>
-    <!-- head feather texture -->
-    <g stroke="#c4cfdd" stroke-width="1.1" fill="none" opacity=".8" stroke-linecap="round">
-      <path d="M30 38 q11 -6 24 -3"/><path d="M30 46 q13 -4 27 0"/><path d="M32 54 q13 -3 25 1"/><path d="M40 61 q10 -2 18 1"/>
-    </g>
-    <!-- yellow brow (fierce) -->
-    <path d="M30 35 Q42 28 56 36 L55 41 Q42 33 33 40 Z" fill="#f5a623"/>
-    <path d="M31 36 Q42 30 55 37" stroke="#d07e10" stroke-width="1" fill="none"/>
-    <!-- eye -->
-    <ellipse cx="43" cy="43" rx="5.2" ry="5.4" fill="#161a20"/>
-    <circle cx="43" cy="43" r="2.6" fill="#3a2a10"/>
-    <circle cx="44.3" cy="41.4" r="1.5" fill="#fff"/>
-    <!-- beak -->
-    <path d="M28 44 C14 45 10 53 20 58 C27 61 34 57 35 51 C36 46 34 44 28 44 Z" fill="url(#eBeak)"/>
-    <path d="M18 56 C13 58 13 62 18 61 C21 60 23 58 22 56 Z" fill="#c9760e"/>
-    <path d="M35 49 q-7 4 -15 6" stroke="#b3690c" stroke-width="1.2" fill="none"/>
-    <path d="M28 44 q3 3 6 6" stroke="#ffe08a" stroke-width="1" fill="none" opacity=".7"/>
-    <ellipse cx="30" cy="47" rx="1.1" ry="0.8" fill="#a85e08"/>
+    <circle cx="50" cy="40" r="9.5" fill="#f6f9fc"/>
+    <path d="M50 30.5 C44 31 41 35 41 40 C46 37 54 37 59 40 C59 35 56 31 50 30.5 Z" fill="#ffffff"/>
+    <g stroke="#cfd9e4" stroke-width="0.8" fill="none" opacity=".8"><path d="M43 38 q7 -3 14 0"/><path d="M43 43 q7 -2 14 0"/></g>
+    <!-- eyes -->
+    <circle cx="46" cy="39" r="1.4" fill="#1a140a"/>
+    <circle cx="54" cy="39" r="1.4" fill="#1a140a"/>
+    <circle cx="46.4" cy="38.5" r="0.5" fill="#fff"/>
+    <circle cx="54.4" cy="38.5" r="0.5" fill="#fff"/>
+    <!-- hooked beak -->
+    <path d="M46 43 Q50 41 54 43 Q52 50 50 51 Q48 50 46 43 Z" fill="url(#eBeak)"/>
+    <path d="M49 50 q1 2 0 3 -1 -1 0 -3" fill="#c9760e"/>
   </g>
 </svg>`,
 
-    ace:   gem('A', 'ace', '#ffe789', '#b8860b'),
-    king:  gem('K', 'king', '#ff7b7b', '#9c1616'),
-    queen: gem('Q', 'queen', '#dc9bf0', '#772a9e'),
-    jack:  gem('J', 'jack', '#83ec9f', '#1c8a3d'),
-    ten:   gem('10', 'ten', '#ffc084', '#bd560f'),
-    nine:  gem('9', 'nine', '#93c6ff', '#1c5cc0'),
+    ace:   woodCard('A', 'ace', '#f0c247', '#a9760f'),
+    king:  woodCard('K', 'king', '#d84a3a', '#8f1c14'),
+    queen: woodCard('Q', 'queen', '#a94ec9', '#5f238a'),
+    jack:  woodCard('J', 'jack', '#3f9f52', '#1c6a2e'),
+    ten:   woodCard('10', 'ten', '#e07a24', '#a2450c'),
+    nine:  woodCard('9', 'nine', '#3f63d0', '#1b2f8f'),
   };
 
   window.SYMBOL_ART = ART;

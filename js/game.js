@@ -21,15 +21,15 @@ const ROWS = 3;
  * weight  : relative frequency on the reel strips
  */
 const SYMBOLS = {
-  // Premium symbols: the hunter and the wolves lead the paytable.
+  // Premium symbols: the hunter and the wolf lead the paytable and pay
+  // already from TWO of a kind.
   hunter:  { emoji: '🏹', name: 'HUNTER',  kind: 'high', weight: 3,
-             pay: { 3: 20, 4: 60, 5: 200 } },
+             pay: { 2: 5, 3: 20, 4: 60, 5: 200 } },
   wolf:    { emoji: '🐺', name: 'WOLF',    kind: 'high', weight: 4,
-             pay: { 3: 12, 4: 32, 5: 80 } },
-  bear:    { emoji: '🐻', name: 'BEAR',    kind: 'high', weight: 5,
+             pay: { 2: 2, 3: 12, 4: 32, 5: 80 } },
+  // Buffalo replaces the old bear + boar pair, keeping the bear paytable.
+  buffalo: { emoji: '🦬', name: 'BUFFALO', kind: 'high', weight: 6,
              pay: { 3: 10, 4: 20, 5: 50 } },
-  boar:    { emoji: '🐗', name: 'BOAR',    kind: 'high', weight: 5,
-             pay: { 3: 8, 4: 16, 5: 40 } },
   eagle:   { emoji: '🦅', name: 'EAGLE',   kind: 'high', weight: 6,
              pay: { 3: 6, 4: 12, 5: 24 } },
   ace:     { emoji: 'A',  name: 'A',       kind: 'card', weight: 8,
@@ -179,7 +179,42 @@ function buildBoard() {
 
 const ART = window.SYMBOL_ART || {};
 
+/* Optional bitmap art. Drop PNG files into the images/ folder using these
+ * exact base names and the game uses them instead of the built-in SVG.
+ * If a file is missing, the SVG drawing stays as the fallback. */
+const IMAGE_BASENAMES = {
+  nine: '9', ten: '10', ace: 'A', jack: 'J', queen: 'Q', king: 'K',
+  hunter: 'Hunter', wolf: 'Wolf', buffalo: 'Buffalo', eagle: 'Eagle',
+  wild: 'Wild', scatter: 'Scatter',
+};
+const symbolImage = {}; // id -> resolved image url (once found)
+
+function probeImages() {
+  const exts = ['png', 'PNG'];
+  const jobs = Object.entries(IMAGE_BASENAMES).map(([id, base]) => {
+    const names = [...new Set([base, base.toLowerCase()])];
+    const candidates = [];
+    for (const n of names) for (const e of exts) candidates.push(`images/${n}.${e}`);
+    return new Promise((resolve) => {
+      let i = 0;
+      const next = () => {
+        if (i >= candidates.length) return resolve(false);
+        const url = candidates[i++];
+        const img = new Image();
+        img.onload = () => { symbolImage[id] = url; resolve(true); };
+        img.onerror = next;
+        img.src = url;
+      };
+      next();
+    });
+  });
+  return Promise.all(jobs);
+}
+
 function artFor(id) {
+  if (symbolImage[id]) {
+    return `<img class="sym-img" src="${symbolImage[id]}" alt="${SYMBOLS[id].name}" draggable="false">`;
+  }
   return ART[id] || `<div class="sym-fallback">${SYMBOLS[id].emoji}</div>`;
 }
 
@@ -598,7 +633,7 @@ function toggleAuto(force) {
 function buildPaytable() {
   const wrap = $('#paytableWrap');
   wrap.innerHTML = '';
-  const order = ['hunter', 'wolf', 'bear', 'boar', 'eagle', 'ace', 'king',
+  const order = ['hunter', 'wolf', 'buffalo', 'eagle', 'ace', 'king',
     'queen', 'jack', 'ten', 'nine', 'wild', 'scatter'];
   for (const id of order) {
     const def = SYMBOLS[id];
@@ -606,7 +641,7 @@ function buildPaytable() {
     item.className = 'pt-item';
     let rows = '';
     if (Object.keys(def.pay).length) {
-      for (const n of [5, 4, 3]) {
+      for (const n of [5, 4, 3, 2]) {
         if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét</span></div>`;
       }
     } else if (def.kind === 'wild') {
@@ -625,6 +660,9 @@ function init() {
   buildBoard();
   buildPaytable();
   updateMeters();
+
+  // Load any bitmap art from images/, then re-render so it replaces the SVG.
+  probeImages().then(() => { renderGrid(); buildPaytable(); });
 
   $('#startBtn').addEventListener('click', () => {
     if (state.auto) toggleAuto(false);
