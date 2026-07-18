@@ -123,6 +123,11 @@ body::after {
   animation: pulse 1.2s infinite;
 }
 .free-banner .fb-count { color: var(--gold); }
+.free-banner.gold {
+  background: linear-gradient(90deg, #7a5410, #e0a828, #7a5410);
+  border-color: #fff2b0;
+}
+.free-banner.gold .fb-title, .free-banner.gold .fb-count { color: #3a2405; }
 @keyframes pulse { 50% { filter: brightness(1.35); } }
 
 /* ---------- Screen / reels ---------- */
@@ -149,22 +154,24 @@ body::after {
 .reels {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-  background: var(--reel-bg);
+  gap: 0;
+  background: #F0F1D8;               /* backdrop behind the icons */
   border-radius: 6px;
-  padding: 4px;
+  padding: 2px;
   overflow: hidden;
 }
 .reel {
   display: grid;
   grid-template-rows: repeat(3, 1fr);
-  gap: 4px;
+  gap: 0;
+  /* only column separators between reels — no per-icon frames */
+  border-right: 2px solid #d3d4b6;
 }
+.reel:last-child { border-right: none; }
 .cell {
   aspect-ratio: 1 / 1;
-  background: linear-gradient(180deg, #ffffff, #e9e4d6);
-  border: 1px solid #cfc7b2;
-  border-radius: 6px;
+  background: transparent;
+  border: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -174,11 +181,12 @@ body::after {
   transition: transform 0.08s;
 }
 .cell .sym {
-  width: 82%;
-  height: 82%;
+  width: 90%;
+  height: 90%;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 .cell .sym .art {
   width: 100%;
@@ -195,6 +203,19 @@ body::after {
   filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
   -webkit-user-select: none;
   user-select: none;
+}
+/* Gold multiplier value overlaid on the gold coin */
+.gold-mult {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -46%);
+  font-weight: 900;
+  font-size: clamp(15px, 4vw, 30px);
+  color: #4a2e05;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Idle animations ------------------------------------------------------- */
@@ -236,17 +257,6 @@ body::after {
   30% { opacity: 1; }
   100% { transform: translateY(-16px); opacity: 0; }
 }
-.cell.wild {
-  background: linear-gradient(180deg, #1e3a5f, #0d2036);
-  color: var(--gold);
-}
-.cell.wild .sym-name { color: var(--gold); }
-.cell.scatter {
-  background: linear-gradient(180deg, #4a2c10, #2a1808);
-  color: var(--gold);
-}
-.cell.scatter .sym-name { color: var(--gold); }
-
 .cell.spinning { animation: reelblur 0.28s linear infinite; }
 @keyframes reelblur {
   0% { transform: translateY(-6%); filter: blur(1px); }

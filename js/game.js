@@ -45,13 +45,32 @@ const SYMBOLS = {
   nine:    { emoji: '9',  name: '9',       kind: 'card', weight: 10,
              pay: { 3: 1, 4: 2, 5: 5 } },
   // WILD is the fire — substitutes for all but the scatter and doubles per wild.
-  wild:    { emoji: '🔥', name: 'WILD',    kind: 'wild', weight: 2, pay: {} },
+  // Uncapped per reel, so it can land 3 stacked in one column.
+  wild:    { emoji: '🔥', name: 'WILD',    kind: 'wild', weight: 3, pay: {} },
   scatter: { emoji: '🏚️', name: 'BONUS',   kind: 'scatter', weight: 2, pay: {} },
+  // GOLD appears only on the first and last reel; it carries a 1-9x win
+  // multiplier and 3+ on the board trigger the wild bonus spins.
+  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 4, pay: {} },
 };
 
 /* Which reels each symbol may appear on (0-indexed). Scatter only on the
- * three middle reels (1,2,3) per the rules. Wild not on reel 0 (common). */
+ * three middle reels (1,2,3) per the rules. Wild not on reel 0 (common).
+ * Gold only on the first and last reels. */
 const MIDDLE_REELS = [1, 2, 3];
+const GOLD_REELS = [0, 4];
+
+/* Weighted 1-9 multiplier for a gold symbol (higher = rarer). */
+const GOLD_MULT_WEIGHTS = [
+  [1, 30], [2, 22], [3, 16], [4, 11], [5, 8], [6, 5], [7, 4], [8, 2], [9, 2],
+];
+function randomGoldMult() {
+  const total = GOLD_MULT_WEIGHTS.reduce((s, [, w]) => s + w, 0);
+  let n = Math.random() * total;
+  for (const [v, w] of GOLD_MULT_WEIGHTS) { if ((n -= w) < 0) return v; }
+  return 1;
+}
+const GOLD_BONUS_SPINS = 5;   // free spins awarded by 3+ gold
+const GOLD_TRIGGER = 3;       // gold symbols needed on the board
 
 /* 20 paylines. Each entry is the row index (0=top,1=mid,2=bottom) per reel. */
 const PAYLINES = [
@@ -85,7 +104,8 @@ const LINE_COLORS = [
 ];
 
 const BET_STEPS = [0.10, 0.30, 0.50, 0.70, 1.00, 2.00, 3.00, 4.00,
-  5.00, 6.00, 7.00, 8.00, 9.00, 10.00];
+  5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
+  25.00, 50.00, 75.00, 100.00, 150.00, 200.00, 1000.00];
 const LINES = PAYLINES.length; // 20
 const START_CREDIT = 10.00;
 const FREE_SPINS_AWARD = 10;
@@ -97,9 +117,12 @@ const state = {
   credit: START_CREDIT,
   betIndex: 0,            // 0.10 total bet (minimum)
   grid: [],               // grid[col][row] = symbol id
+  goldValues: {},         // 'c,r' -> gold multiplier value
   spinning: false,
   freeSpins: 0,
   inFreeGame: false,
+  goldSpins: 0,           // remaining gold-bonus spins
+  inGoldGame: false,
   auto: false,
   lastWin: 0,
 };
@@ -116,8 +139,11 @@ function reelSymbols(col) {
   const pool = [];
   for (const [id, def] of Object.entries(SYMBOLS)) {
     if (def.kind === 'scatter' && !MIDDLE_REELS.includes(col)) continue;
+    if (def.kind === 'gold' && !GOLD_REELS.includes(col)) continue; // gold: ends only
     if (def.kind === 'wild' && col === 0) continue; // no wild on first reel
-    for (let i = 0; i < def.weight; i++) pool.push(id);
+    let w = def.weight;
+    if (def.kind === 'wild' && state.inGoldGame) w *= 4; // more wilds in gold bonus
+    for (let i = 0; i < w; i++) pool.push(id);
   }
   return pool;
 }
@@ -148,6 +174,9 @@ function spinReelSymbols(col, holdSet) {
       }
     }
     state.grid[col][r] = sym;
+    // Each freshly-landed gold gets a weighted 1-9 multiplier value.
+    if (sym === 'gold') state.goldValues[col + ',' + r] = randomGoldMult();
+    else delete state.goldValues[col + ',' + r];
   }
 }
 
@@ -185,7 +214,7 @@ const ART = window.SYMBOL_ART || {};
 const IMAGE_BASENAMES = {
   nine: '9', ten: '10', ace: 'A', jack: 'J', queen: 'Q', king: 'K',
   hunter: 'Hunter', wolf: 'Wolf', buffalo: 'Buffalo', eagle: 'Eagle',
-  wild: 'Wild', scatter: 'Scatter',
+  wild: 'Wild', scatter: 'Scatter', gold: 'Gold',
 };
 const symbolImage = {}; // id -> resolved image url (once found)
 
@@ -222,7 +251,12 @@ function renderCell(c, r) {
   const id = state.grid[c][r];
   const def = SYMBOLS[id];
   const cell = cellEls[c][r];
-  cell.querySelector('.sym').innerHTML = artFor(id);
+  let html = artFor(id);
+  if (id === 'gold') {
+    const v = state.goldValues[c + ',' + r] || 1;
+    html += `<span class="gold-mult">${v}×</span>`;
+  }
+  cell.querySelector('.sym').innerHTML = html;
   cell.className = 'cell ' + def.kind + ' sym-' + id;
 }
 
@@ -241,7 +275,8 @@ function evaluateLine(line) {
   let base = null;
   for (const s of symbolsOnLine) {
     if (SYMBOLS[s].kind === 'wild') continue;
-    if (SYMBOLS[s].kind === 'scatter') break; // scatter never part of line win
+    // scatter and gold never take part in a line win
+    if (SYMBOLS[s].kind === 'scatter' || SYMBOLS[s].kind === 'gold') break;
     base = s;
     break;
   }
@@ -303,7 +338,36 @@ function evaluateGrid() {
     }
   }
 
-  return { totalWin, lineWins, scatterCount, positions, scatterPositions };
+  // Gold: only on the end reels. Sum the multiplier values (capped at 9x).
+  let goldCount = 0;
+  let goldSum = 0;
+  const goldPositions = [];
+  for (const c of GOLD_REELS) {
+    for (let r = 0; r < ROWS; r++) {
+      if (state.grid[c][r] === 'gold') {
+        goldCount++;
+        goldSum += state.goldValues[c + ',' + r] || 1;
+        goldPositions.push(c + ',' + r);
+      }
+    }
+  }
+  const goldMultiplier = goldCount > 0 ? Math.min(9, goldSum) : 1;
+
+  // Apply the gold multiplier to every winning line (and the total).
+  if (goldMultiplier > 1 && lineWins.length) {
+    totalWin = 0;
+    for (const lw of lineWins) {
+      lw.baseWin = lw.win;
+      lw.win = round2(lw.win * goldMultiplier);
+      totalWin += lw.win;
+    }
+  }
+
+  return {
+    totalWin, lineWins, positions,
+    scatterCount, scatterPositions,
+    goldCount, goldMultiplier, goldPositions,
+  };
 }
 
 /* ----------------------------- Rendering wins --------------------------- */
@@ -369,8 +433,9 @@ async function presentWins(result, { fast } = {}) {
   clearWinVisuals();
   showWinLines(result);
   const big = state.lastWin >= totalBet() * 15;
-  if (wins.length > 1 || big) {
-    showWinPopup(`${big ? 'NAGY NYEREMÉNY!  ' : 'ÖSSZESEN  '}${fmt(state.lastWin)} €`);
+  const goldTag = result.goldMultiplier > 1 ? `🪙×${result.goldMultiplier}  ` : '';
+  if (wins.length > 1 || big || goldTag) {
+    showWinPopup(`${goldTag}${big ? 'NAGY NYEREMÉNY!  ' : 'ÖSSZESEN  '}${fmt(state.lastWin)} €`);
     await sleep(fast ? 950 : 1400);
   }
   return state.lastWin;
@@ -393,13 +458,18 @@ function updateMeters() {
   $('#credit').textContent = fmt(state.credit);
   $('#betValue').textContent = fmt(totalBet());
   $('#win').textContent = fmt(state.lastWin);
-  $('#freeSpinsLeft').textContent = state.freeSpins;
-  $('#freeBanner').classList.toggle('hidden', !state.inFreeGame);
+  const gold = state.inGoldGame;
+  const banner = state.inFreeGame || gold;
+  $('#freeBanner').classList.toggle('hidden', !banner);
+  $('#freeBanner').classList.toggle('gold', gold);
+  const title = $('#freeBanner .fb-title');
+  if (title) title.textContent = gold ? 'ARANY BÓNUSZ' : 'INGYENES JÁTÉKOK';
+  $('#freeSpinsLeft').textContent = gold ? state.goldSpins : state.freeSpins;
 }
 
 function setControlsEnabled(enabled) {
   ['#betMinus', '#betPlus', '#maxBet'].forEach((s) => {
-    $(s).disabled = !enabled || state.inFreeGame;
+    $(s).disabled = !enabled || state.inFreeGame || state.inGoldGame;
   });
 }
 
@@ -448,7 +518,11 @@ async function animateSpin(holdSet) {
 async function doSpin() {
   if (state.spinning) return;
 
-  if (!state.inFreeGame) {
+  // A spin is free (no stake) during scatter free games or gold bonus spins.
+  const goldSpinNow = state.inGoldGame;
+  const freeMode = state.inFreeGame || state.inGoldGame;
+
+  if (!freeMode) {
     if (state.credit < totalBet()) {
       showWinPopup('NINCS ELÉG KREDIT');
       await sleep(1200);
@@ -464,16 +538,18 @@ async function doSpin() {
   hideWinPopup();
   updateMeters();
   setControlsEnabled(false);
-  $('#startBtn').textContent = state.inFreeGame ? '...' : 'STOP';
+  $('#startBtn').textContent = freeMode ? '...' : 'STOP';
   $('#startBtn').classList.add('stop');
 
   if (state.inFreeGame) {
-    await freeSpinRound();
+    await freeSpinRound();                 // scatter sticky respins
   } else {
-    await animateSpin(null);
+    await animateSpin(null);               // base game or gold bonus spin
     const result = evaluateGrid();
-    await settleResult(result, false);
+    await settleResult(result, goldSpinNow);
   }
+
+  if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
 
   state.spinning = false;
   $('#startBtn').textContent = 'START';
@@ -481,30 +557,61 @@ async function doSpin() {
   setControlsEnabled(true);
   updateMeters();
 
-  // Continue free game / autoplay chains.
-  if (state.freeSpins > 0 && state.inFreeGame) {
-    await sleep(700);
-    doSpin();
-  } else if (state.inFreeGame && state.freeSpins === 0) {
+  // Continue free game / gold bonus / autoplay chains.
+  if (state.inFreeGame && state.freeSpins > 0) {
+    await sleep(700); doSpin();
+  } else if (state.inFreeGame) {
     endFreeGame();
     if (state.auto) { await sleep(600); doSpin(); }
-  } else if (state.auto && !state.inFreeGame) {
+  } else if (state.inGoldGame && state.goldSpins > 0) {
+    await sleep(650); doSpin();
+  } else if (state.inGoldGame) {
+    endGoldGame();
+    if (state.auto) { await sleep(600); doSpin(); }
+  } else if (state.auto) {
     if (state.credit >= totalBet()) { await sleep(600); doSpin(); }
     else toggleAuto(false);
   }
 }
 
-/* Settle a normal (non free-game) spin result. */
+/* Settle a base-game or gold-bonus spin result. */
 async function settleResult(result, isFree) {
   if (result.totalWin > 0) {
-    await presentWins(result, { fast: state.auto });
+    await presentWins(result, { fast: state.auto || isFree });
     hideWinPopup();
   }
 
-  // Scatter -> free spins
-  if (result.scatterCount >= 3) {
-    await triggerFreeGames(result);
+  if (!isFree) {
+    // Base game: scatter takes priority, otherwise gold triggers its bonus.
+    if (result.scatterCount >= 3) {
+      await triggerFreeGames(result);
+    } else if (result.goldCount >= GOLD_TRIGGER) {
+      await triggerGoldGame(result);
+    }
+  } else if (state.inGoldGame && result.goldCount >= GOLD_TRIGGER) {
+    await triggerGoldGame(result);         // retrigger more gold spins
   }
+}
+
+async function triggerGoldGame(result) {
+  result.goldPositions.forEach((p) => {
+    const [c, r] = p.split(',').map(Number);
+    cellEls[c][r].classList.add('win-cell');
+  });
+  state.goldSpins += GOLD_BONUS_SPINS;
+  state.inGoldGame = true;
+  showWinPopup(`🪙 ${GOLD_BONUS_SPINS} WILD PÖRGETÉS!`);
+  updateMeters();
+  await sleep(1800);
+  hideWinPopup();
+}
+
+function endGoldGame() {
+  state.inGoldGame = false;
+  state.goldSpins = 0;
+  showWinPopup('ARANY BÓNUSZ VÉGE');
+  updateMeters();
+  setTimeout(hideWinPopup, 1500);
 }
 
 function round2(n) { return Math.round(n * 100) / 100; }
@@ -610,13 +717,13 @@ async function freeSpinRound() {
 /* ------------------------------ Controls -------------------------------- */
 
 function changeBet(dir) {
-  if (state.spinning || state.inFreeGame) return;
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   state.betIndex = Math.min(BET_STEPS.length - 1, Math.max(0, state.betIndex + dir));
   updateMeters();
 }
 
 function maxBet() {
-  if (state.spinning || state.inFreeGame) return;
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   state.betIndex = BET_STEPS.length - 1;
   updateMeters();
   doSpin();
@@ -625,7 +732,7 @@ function maxBet() {
 function toggleAuto(force) {
   state.auto = force === undefined ? !state.auto : force;
   $('#autoBtn').classList.toggle('active', state.auto);
-  if (state.auto && !state.spinning && !state.inFreeGame) doSpin();
+  if (state.auto && !state.spinning && !state.inFreeGame && !state.inGoldGame) doSpin();
 }
 
 /* ------------------------------ Paytable UI ----------------------------- */
@@ -634,7 +741,7 @@ function buildPaytable() {
   const wrap = $('#paytableWrap');
   wrap.innerHTML = '';
   const order = ['hunter', 'wolf', 'buffalo', 'eagle', 'ace', 'king',
-    'queen', 'jack', 'ten', 'nine', 'wild', 'scatter'];
+    'queen', 'jack', 'ten', 'nine', 'wild', 'scatter', 'gold'];
   for (const id of order) {
     const def = SYMBOLS[id];
     const item = document.createElement('div');
@@ -646,6 +753,8 @@ function buildPaytable() {
       }
     } else if (def.kind === 'wild') {
       rows = '<div class="pt-row"><span>Helyettesít + ×2 / wild</span></div>';
+    } else if (def.kind === 'gold') {
+      rows = '<div class="pt-row"><span>1–9× szorzó · 3× → 5 wild pörgetés</span></div>';
     } else {
       rows = '<div class="pt-row"><span>3× → 10 ingyen játék</span></div>';
     }

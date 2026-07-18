@@ -21,6 +21,7 @@ megjelennek — csak töltsd fel őket ebbe a mappába.
 | Sas                  | `Eagle.png`    |
 | Wild (tűz)           | `Wild.png`     |
 | Scatter / Bonus      | `Scatter.png`  |
+| Gold (szorzó)        | `Gold.png`     |
 
 ## Tippek
 
