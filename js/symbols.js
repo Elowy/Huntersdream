@@ -427,6 +427,27 @@
   </g>
 </svg>`,
 
+    /* ---------------- GOLD — multiplier coin ------------------------ */
+    gold: `
+<svg class="art art-gold" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="goldG" cx="42%" cy="34%" r="70%">
+      <stop offset="0" stop-color="#fff4b0"/><stop offset="45%" stop-color="#f5c430"/><stop offset="100%" stop-color="#a9760f"/>
+    </radialGradient>
+    <linearGradient id="goldRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe692"/><stop offset="1" stop-color="#7a5410"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="52" r="41" fill="url(#goldRim)"/>
+  <circle cx="50" cy="50" r="39" fill="url(#goldRim)"/>
+  <circle cx="50" cy="50" r="35" fill="url(#goldG)" stroke="#8a5c10" stroke-width="2"/>
+  <circle cx="50" cy="50" r="30" fill="none" stroke="#c8960e" stroke-width="1.5" opacity=".7" stroke-dasharray="2 3"/>
+  <g fill="#ffdf6a" opacity=".8">
+    <circle cx="50" cy="20" r="1.6"/><circle cx="50" cy="80" r="1.6"/><circle cx="20" cy="50" r="1.6"/><circle cx="80" cy="50" r="1.6"/>
+  </g>
+  <ellipse cx="37" cy="35" rx="11" ry="5" fill="#fff" opacity=".45" transform="rotate(-32 37 35)"/>
+</svg>`,
+
     ace:   woodCard('A', 'ace', '#f0c247', '#a9760f'),
     king:  woodCard('K', 'king', '#d84a3a', '#8f1c14'),
     queen: woodCard('Q', 'queen', '#a94ec9', '#5f238a'),
