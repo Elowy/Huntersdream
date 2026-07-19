@@ -1103,7 +1103,12 @@ async function doSpin() {
     } else {
       await animateSpin(null);               // base game or gold bonus spin
       const result = evaluateGrid();
-      await settleResult(result, goldSpinNow, wasAuto);
+      // If autoplay is set to stop on a big win and this spin is one, stop it
+      // now and let the gamble be offered on this final (stopping) spin.
+      const bigStop = !goldSpinNow && state.auto && state.autoStopBig
+        && result.totalWin >= totalBet() * 20;
+      if (bigStop) stopAutoplay();
+      await settleResult(result, goldSpinNow, wasAuto && !bigStop);
     }
 
     if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
@@ -1112,7 +1117,8 @@ async function doSpin() {
     if (!freeMode && state.auto && Number.isFinite(state.autoRemaining)) {
       state.autoRemaining = Math.max(0, state.autoRemaining - 1);
     }
-    // Stop autoplay on a big base-game win if requested.
+    // Stop autoplay on a big base-game win if requested (already handled above
+    // when a gamble was offered; this covers any remaining case defensively).
     if (!freeMode && state.auto && state.autoStopBig && state.lastWin >= totalBet() * 20) {
       stopAutoplay();
     }
