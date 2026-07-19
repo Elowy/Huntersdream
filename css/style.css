@@ -480,6 +480,11 @@ body::after {
   cursor: pointer;
   line-height: 1;
 }
+.icon-btn.active {
+  background: var(--gold);
+  color: #2a1a08;
+  box-shadow: 0 0 10px rgba(246,196,69,0.75);
+}
 .extra-actions {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
