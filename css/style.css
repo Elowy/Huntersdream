@@ -201,7 +201,8 @@ body::after {
   height: 100%;
   object-fit: contain;
   display: block;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+  /* No drop-shadow on uploaded PNGs: it read as a border/frame around the
+     image (rectangular for opaque PNGs). The artwork sits flat on the reel. */
   -webkit-user-select: none;
   user-select: none;
 }

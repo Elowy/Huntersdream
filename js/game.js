@@ -122,11 +122,14 @@ const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
  * richer at BONUS_RTP, so the table is calibrated all the way up to 150%. */
 const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent (base slider)
 const BONUS_RTP = 150;   // scatter free games are more generous than the base game
+// WILD is rare on the first two reels: reel 1 never has it, reel 2 gets only
+// this fraction of the normal weight. (The RTP calibration accounts for this.)
+const WILD_COL1_FACTOR = 0.5;
 const WILD_TABLE = [
-  82, 82, 83, 84, 85, 85, 86, 87, 88, 88, 89, 90, 91, 92, 92, 93, 94, 95, 95, 96,   // 80-99%
-  97, 98, 98, 99, 100, 101, 101, 102, 103, 103, 104, 105, 105, 106, 107, 108, 108, 109, 110, 111, // 100-119%
-  111, 112, 112, 113, 114, 114, 115, 116, 116, 117, 118, 118, 119, 120, 120, 121, 122, 122, 123, 123, // 120-139%
-  124, 125, 125, 126, 127, 127, 128, 129, 129, 130, 130,   // 140-150% (BONUS_RTP lookup)
+  114, 115, 116, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 127, 128, 130, 131, 131, 132, 133, // 80-99%
+  134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 145, 146, 147, 148, 149, 150, 151, 152, // 100-119%
+  153, 154, 154, 155, 156, 157, 158, 159, 159, 160, 161, 162, 163, 163, 164, 165, 166, 167, 167, 168, // 120-139%
+  169, 170, 171, 172, 173, 173, 174, 175, 176, 177, 178,   // 140-150% (BONUS_RTP lookup)
 ];
 let activeWild = null;   // wild weight snapshot for the current spin
 function wildWeightFor(rtp) {
@@ -181,10 +184,10 @@ const GAMBLE_MAX_WIN = 5000;   // and on the amount
 
 const $ = (sel) => document.querySelector(sel);
 const fmt = (n) => n.toFixed(2);
-/* The displayed TÉT is the PER-LINE stake (like a real 20-line machine): the
- * paytable pays pay × lineBet, so the numbers are meaningful, and the actual
- * amount staked per spin is lineBet × 20. RTP is unchanged (win and stake both
- * scale by 20), so the WILD_TABLE calibration stays valid. */
+/* The player sets and pays a single total bet (totalBet). Internally the
+ * paytable pays per line, so lineBet = totalBet / 20 drives the win math —
+ * but the UI only ever shows the total TÉT, like the original machine.
+ * BET_STEPS holds the per-line values; the displayed/charged bet is ×20. */
 const lineBet = () => BET_STEPS[state.betIndex];
 const totalBet = () => round2(lineBet() * LINES);
 
@@ -198,10 +201,12 @@ function reelSymbols(col) {
     for (let i = 0; i < def.weight; i++) pool.push(id);
   }
   // WILD frequency is the RTP lever — a real, paying-helper symbol, not a
-  // filler. Not on the first reel. The mode-specific weight (base / richer
-  // free game / ×4 gold bonus) is resolved by effectiveWildWeight().
+  // filler. Never on reel 1; rare on reel 2 (WILD_COL1_FACTOR); normal on the
+  // last three. The mode-specific weight (base / richer free game / ×4 gold
+  // bonus) is resolved by effectiveWildWeight().
   if (col !== 0) {
-    const ww = wildWeight();
+    let ww = wildWeight();
+    if (col === 1) ww = Math.round(ww * WILD_COL1_FACTOR);
     for (let i = 0; i < ww; i++) pool.push('wild');
   }
   return pool;
@@ -527,9 +532,7 @@ function hideWinPopup() { $('#winPopup').classList.add('hidden'); }
 
 function updateMeters() {
   $('#credit').textContent = fmt(state.credit);
-  $('#betValue').textContent = fmt(lineBet());
-  const tb = $('#totalBetValue');
-  if (tb) tb.textContent = fmt(totalBet());
+  $('#betValue').textContent = fmt(totalBet());   // single TÉT = the amount actually staked
   $('#win').textContent = fmt(state.lastWin);
   const gold = state.inGoldGame;
   const banner = state.inFreeGame || gold;
@@ -1361,7 +1364,7 @@ function buildPaytable() {
     let rows = '';
     if (Object.keys(def.pay).length) {
       for (const n of [5, 4, 3, 2]) {
-        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét/vonal</span></div>`;
+        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}×</span></div>`;
       }
     } else if (def.kind === 'wild') {
       rows = '<div class="pt-row"><span>Helyettesít + ×2 / wild</span></div>';
@@ -1477,4 +1480,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw };
