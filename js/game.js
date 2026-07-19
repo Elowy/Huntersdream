@@ -768,7 +768,7 @@ function updateComboMeter() {
   const active = state.combo > 0 && next > 1;
   chip.classList.toggle('active', active);
   const v = $('#comboVal');
-  if (v) v.textContent = active ? `🔥 ${state.combo}× ·×${next}` : '🔥 ×1';
+  if (v) v.textContent = active ? `🔥${state.combo}·×${next}` : '🔥×1';
 }
 
 /* Expanding wild: in the free game a landed wild fills its entire reel. Make it
