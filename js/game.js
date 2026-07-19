@@ -175,7 +175,7 @@ const state = {
 };
 
 const TOPUP_AMOUNT = 50;       // credit added by the top-up button
-const WITHDRAW_AMOUNT = 10;    // credit removed by the withdraw (cash-out) button
+const WITHDRAW_AMOUNT = 50;    // credit removed by the withdraw (cash-out) button
 const BUY_BONUS_COST = 50;     // free-spin bonus buy costs 50x total bet
 const SFX = window.SFX || { play() {}, toggleMute() { return false; }, setMuted() {}, get muted() { return false; }, resume() {} };
 
