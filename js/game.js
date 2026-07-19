@@ -1,5 +1,5 @@
 /* =========================================================================
- * HUNTER'S DREAM 2 — slot machine game
+ * ADVENTURE SPINS — slot machine game
  * 5 reels · 3 rows · 20 paylines
  * Features: WILD (substitutes + x2 per wild), SCATTER on 3 middle reels
  *           -> 10 sticky free spins.
@@ -568,14 +568,16 @@ function updateMeters() {
   updateHistoryPanel();
 }
 
+/* Net result (+/-): money still on the table + money cashed out − money put in.
+ * This is the value the leaderboard ranks by. */
+function currentNet() { return round2(state.credit + state.withdrawn - state.deposited); }
+
 /* History panel: total deposited vs. current balance, and the running net
  * result (+/-) so the player can see how far up or down they are. */
 function updateHistoryPanel() {
   const dep = round2(state.deposited);
-  const wdr = round2(state.withdrawn);
   const bal = round2(state.credit);
-  // Net result = money still on the table + money cashed out − money put in.
-  const net = round2(bal + wdr - dep);
+  const net = currentNet();
   const setTxt = (sel, txt) => { const el = $(sel); if (el) el.textContent = txt; };
   setTxt('#hpDeposited', fmt(dep) + ' €');
   setTxt('#hpBalance', fmt(bal) + ' €');
@@ -597,7 +599,121 @@ function updateHistoryPanel() {
 function setControlsEnabled(enabled) {
   const busy = !enabled || state.inFreeGame || state.inGoldGame;
   ['#betMinus', '#betPlus', '#maxBet'].forEach((s) => { $(s).disabled = busy; });
-  ['#buyBonusBtn', '#topupBtn', '#withdrawBtn'].forEach((s) => { const el = $(s); if (el) el.disabled = busy; });
+  ['#buyBonusBtn', '#topupBtn', '#withdrawBtn', '#restartBtn'].forEach((s) => { const el = $(s); if (el) el.disabled = busy; });
+}
+
+/* ------------------------------ Leaderboard ----------------------------- */
+/* A local high-score table (survives restarts), ranked by the net result. */
+
+const DEFAULT_BOARD = [
+  { name: 'VadászKirály', result: 1240 }, { name: 'TűzMester', result: 760 },
+  { name: 'AranyÁsó', result: 430 }, { name: 'SzerencseLovag', result: 220 },
+  { name: 'ErdeiFarkas', result: 90 }, { name: 'KezdőKaland', result: 20 },
+];
+let leaderboard = [];
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function loadBoard() {
+  try {
+    const b = JSON.parse(localStorage.getItem('hd_board'));
+    if (Array.isArray(b)) leaderboard = b.filter((e) => e && typeof e.name === 'string' && typeof e.result === 'number');
+  } catch (e) { /* ignore */ }
+  if (!leaderboard.length) leaderboard = DEFAULT_BOARD.map((e) => ({ ...e }));
+}
+
+function saveBoard() {
+  try { localStorage.setItem('hd_board', JSON.stringify(leaderboard.slice(0, 50))); } catch (e) { /* ignore */ }
+}
+
+function renderBoard() {
+  const list = $('#boardList');
+  if (list) {
+    const sorted = [...leaderboard].sort((a, b) => b.result - a.result).slice(0, 20);
+    list.innerHTML = sorted.map((e, i) => {
+      const cls = e.result >= 0 ? 'pos' : 'neg';
+      const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
+      const sign = e.result >= 0 ? '+' : '−';
+      return `<li class="board-row${e.you ? ' you' : ''}"><span class="br-rank">${rank}</span>`
+        + `<span class="br-name">${escapeHtml(e.name)}</span>`
+        + `<span class="br-res ${cls}">${sign}${fmt(Math.abs(e.result))} €</span></li>`;
+    }).join('');
+  }
+  const yr = $('#boardYour');
+  if (yr) {
+    const n = currentNet();
+    yr.textContent = (n >= 0 ? '+' : '−') + fmt(Math.abs(n)) + ' €';
+    yr.classList.toggle('pos', n >= 0);
+    yr.classList.toggle('neg', n < 0);
+  }
+}
+
+function openBoard() {
+  renderBoard();
+  const msg = $('#boardMsg'); if (msg) msg.textContent = '';
+  $('#boardModal').classList.remove('hidden');
+}
+
+function submitScore() {
+  const input = $('#boardName');
+  const name = (input && input.value || '').trim().slice(0, 14);
+  const msg = $('#boardMsg');
+  if (!name) { if (msg) msg.textContent = 'Adj meg egy nevet!'; return; }
+  leaderboard.forEach((e) => { delete e.you; });
+  leaderboard.push({ name, result: currentNet(), you: true });
+  leaderboard.sort((a, b) => b.result - a.result);
+  leaderboard = leaderboard.slice(0, 50);
+  saveBoard();
+  const rank = leaderboard.findIndex((e) => e.you) + 1;
+  if (msg) msg.textContent = `Felkerültél a toplistára — ${rank}. hely!`;
+  SFX.play('coin');
+  renderBoard();
+}
+
+/* ------------------------------- Restart -------------------------------- */
+
+function restartGame() {
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  stopAutoplay();
+  clearGamble();
+  state.credit = START_CREDIT;
+  state.deposited = START_CREDIT;
+  state.withdrawn = 0;
+  state.deposits = [{ amount: START_CREDIT }];
+  state.gambleNet = 0;
+  state.gambleHistory = [];
+  state.betIndex = 0;
+  state.lastWin = 0;
+  state.bonusWin = 0;
+  saveGame();
+  updateMeters();
+  SFX.play('click');
+  showWinPopup('ÚJRAINDÍTVA');
+  setTimeout(hideWinPopup, 1200);
+}
+
+/* --------------------------- Gamble odds -------------------------------- */
+/* Empirical chances from the last (up to) 10 drawn gamble cards. */
+
+function renderGambleOdds() {
+  const el = $('#gOdds');
+  if (!el) return;
+  const h = state.gambleHistory.slice(0, 10);
+  const n = h.length;
+  if (!n) { el.innerHTML = '<span class="go-empty">Esélyek: húzz lapokat a statisztikához</span>'; return; }
+  const red = h.filter((c) => c.red).length;
+  const black = n - red;
+  const suits = { '♥': 0, '♦': 0, '♠': 0, '♣': 0 };
+  h.forEach((c) => { if (suits[c.s] != null) suits[c.s]++; });
+  const pct = (x) => Math.round((x / n) * 100);
+  el.innerHTML = `<div class="go-title">Esélyek az utolsó ${n} lap alapján</div>`
+    + `<div class="go-bars"><span class="go-red">🔴 ${pct(red)}% <i>(${red})</i></span>`
+    + `<span class="go-black">⚫ ${pct(black)}% <i>(${black})</i></span></div>`
+    + `<div class="go-suits">`
+    + Object.entries(suits).map(([s, c]) => `<span class="go-suit ${'♥♦'.includes(s) ? 'red' : 'black'}">${s} ${pct(c)}%</span>`).join('')
+    + `</div>`;
 }
 
 /* ------------------------------ Persistence ----------------------------- */
@@ -1265,6 +1381,7 @@ function openGamble() {
   gambleRounds = 0;
   gambleBusy = false;
   renderGambleHistory();   // keep the previous cards; the last 10 stay visible
+  renderGambleOdds();      // chances from the last 10 cards
   updateGambleUI();
   const card = $('#gCard');
   card.className = 'gamble-card';
@@ -1330,6 +1447,7 @@ async function gambleGuess(choice) {
   state.gambleHistory.unshift({ rank, s: suit.s, red: suit.red });
   if (state.gambleHistory.length > 10) state.gambleHistory.pop();
   renderGambleHistory();
+  renderGambleOdds();
   saveGame();
 
   const staked = state.gambleAmount;
@@ -1411,6 +1529,7 @@ function buildPaytable() {
 
 function init() {
   loadGame();          // restore saved credit / bet
+  loadBoard();         // restore the leaderboard
   if (!state.deposits.length) state.deposits.push({ amount: state.deposited });  // seed the log
   buildBoard();
   buildPaytable();
@@ -1438,6 +1557,24 @@ function init() {
   $('#rulesModal').addEventListener('click', (e) => {
     if (e.target.id === 'rulesModal') $('#rulesModal').classList.add('hidden');
   });
+
+  // Leaderboard (toplista).
+  $('#boardBtn').addEventListener('click', () => { SFX.resume(); openBoard(); });
+  $('#boardOpenBtn').addEventListener('click', () => { SFX.resume(); openBoard(); });
+  $('#boardClose').addEventListener('click', () => $('#boardModal').classList.add('hidden'));
+  $('#boardModal').addEventListener('click', (e) => { if (e.target.id === 'boardModal') $('#boardModal').classList.add('hidden'); });
+  $('#boardSubmit').addEventListener('click', () => { SFX.resume(); submitScore(); });
+  $('#boardName').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitScore(); });
+
+  // Restart (újraindítás) with a confirm modal.
+  $('#restartBtn').addEventListener('click', () => {
+    if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+    SFX.resume();
+    $('#resetModal').classList.remove('hidden');
+  });
+  $('#resetCancel').addEventListener('click', () => $('#resetModal').classList.add('hidden'));
+  $('#resetModal').addEventListener('click', (e) => { if (e.target.id === 'resetModal') $('#resetModal').classList.add('hidden'); });
+  $('#resetConfirm').addEventListener('click', () => { $('#resetModal').classList.add('hidden'); restartGame(); });
 
   // RTP / payout balance slider.
   setRtp(loadRtp());
@@ -1519,4 +1656,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, getBoard: () => leaderboard };

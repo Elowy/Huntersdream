@@ -3,17 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hunter's Dream 2 — Slot</title>
+
+  <!-- ===================== SEO ===================== -->
+  <title>Adventure Spins — Ingyenes online nyerőgép | 5 tárcsa, 20 nyerővonal</title>
+  <meta name="description" content="Adventure Spins — pörgesd meg az ingyenes, böngészőben játszható kaland-témájú nyerőgépet! 5 tárcsa, 20 nyerővonal, WILD tűz-szorzók, ingyenes pörgetések, arany bónusz, duplázás és toplista. Regisztráció nélkül, azonnal." />
+  <meta name="keywords" content="Adventure Spins, ingyenes nyerőgép, online slot, kaszinó játék, böngészős játék, ingyenes pörgetés, wild szorzó, bónusz játék, duplázás, toplista, nyerőgép játék, slot machine" />
+  <meta name="author" content="Adventure Spins" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#0a1116" />
+  <link rel="canonical" href="./" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Adventure Spins" />
+  <meta property="og:title" content="Adventure Spins — Ingyenes online nyerőgép" />
+  <meta property="og:description" content="5 tárcsa, 20 nyerővonal, WILD tűz-szorzók, ingyenes pörgetések, arany bónusz, duplázás és toplista. Játszd ingyen a böngésződben!" />
+  <meta property="og:image" content="og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Adventure Spins nyerőgép" />
+  <meta property="og:locale" content="hu_HU" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Adventure Spins — Ingyenes online nyerőgép" />
+  <meta name="twitter:description" content="5 tárcsa, 20 nyerővonal, WILD szorzók, bónuszok, toplista. Játszd ingyen!" />
+  <meta name="twitter:image" content="og-image.png" />
+
+  <!-- Favicons / app icons -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Adventure Spins",
+    "description": "Ingyenes, böngészőben játszható kaland-témájú nyerőgép: 5 tárcsa, 20 nyerővonal, WILD tűz-szorzók, ingyenes pörgetések, arany bónusz, duplázás és toplista.",
+    "genre": ["Casino", "Slot", "Arcade"],
+    "gamePlatform": "Web browser",
+    "operatingSystem": "Any",
+    "applicationCategory": "GameApplication",
+    "inLanguage": "hu",
+    "playMode": "SinglePlayer",
+    "image": "og-image.png",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+  }
+  </script>
+
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <div class="cabinet">
     <header class="topbar">
-      <div class="logo">
-        <span class="logo-hunters">HUNTER'S</span>
-        <span class="logo-2">2</span>
-        <span class="logo-dream">DREAM</span>
-      </div>
+      <h1 class="logo">
+        <span class="logo-adventure">ADVENTURE</span>
+        <span class="logo-spins">SPINS</span>
+      </h1>
+      <button id="boardBtn" class="icon-btn" type="button" title="Toplista">🏆</button>
       <button id="turboBtn" class="icon-btn" type="button" title="Villám — gyors pörgetés">⚡</button>
       <button id="muteBtn" class="icon-btn" type="button" title="Hang">🔊</button>
       <button id="rulesBtn" class="rules-btn" type="button">Szabályok</button>
@@ -86,6 +136,10 @@
         <div class="hp-cell"><span class="hp-label">EREDMÉNY</span><span class="hp-value net pos" id="hpNet">+0.00 €</span></div>
       </div>
       <div class="hp-log" id="hpLog"></div>
+      <div class="hp-actions">
+        <button class="hp-btn" id="boardOpenBtn" type="button">🏆 Toplista</button>
+        <button class="hp-btn danger" id="restartBtn" type="button">↺ Újraindítás</button>
+      </div>
     </section>
 
     <footer class="footer">
@@ -97,7 +151,7 @@
   <div class="modal hidden" id="rulesModal">
     <div class="modal-box">
       <button class="modal-close" id="rulesClose" type="button">✕</button>
-      <h2>HUNTER'S DREAM 2 — Szabályok</h2>
+      <h2>ADVENTURE SPINS — Szabályok</h2>
 
       <div class="rtp-control">
         <label for="rtpSlider">Kifizetési szint (RTP): <b id="rtpValue">96%</b></label>
@@ -109,7 +163,7 @@
           <b>96%</b> = kaszinó-reális, <b>120%</b> = nagyon bőkezű.</p>
       </div>
 
-      <p>Hunter's Dream 2 egy 5 tárcsás játék 20 nyerővonallal. A nyeremények
+      <p>Adventure Spins egy 5 tárcsás játék 20 nyerővonallal. A nyeremények
          balról jobbra fizetnek.</p>
       <ul>
         <li>Tét: 2.00 € – 20000.00 € között (a 20 nyerővonalra összesen).</li>
@@ -156,6 +210,7 @@
       </div>
       <div class="gamble-stat">Duplázás mérleg: <b id="gNet" class="pos">+0.00 €</b></div>
       <div class="gamble-history" id="gHistory"></div>
+      <div class="gamble-odds" id="gOdds"></div>
       <div class="gamble-card" id="gCard"><span>?</span></div>
       <div class="gamble-msg" id="gMsg">Tippelj: szín ×2, szimbólum ×4 vagy lap ×13</div>
       <div class="gamble-choices">
@@ -205,6 +260,37 @@
       <label class="auto-opt"><input type="checkbox" id="autoStopBonus" checked /> Állj meg bónusznál</label>
       <label class="auto-opt"><input type="checkbox" id="autoStopBig" /> Állj meg nagy nyereménynél (≥ 20× tét)</label>
       <button class="auto-start" id="autoStartBtn" type="button">INDÍTÁS</button>
+    </div>
+  </div>
+
+  <!-- Leaderboard modal -->
+  <div class="modal hidden" id="boardModal">
+    <div class="board-box">
+      <button class="modal-close" id="boardClose" type="button">✕</button>
+      <h2>🏆 TOPLISTA</h2>
+      <p class="board-sub">A rangsor az <b>eredmény</b> (nyereség/veszteség) alapján.</p>
+      <ol class="board-list" id="boardList"></ol>
+      <div class="board-submit">
+        <div class="board-your">A te eredményed: <b id="boardYour" class="pos">+0.00 €</b></div>
+        <div class="board-form">
+          <input id="boardName" type="text" maxlength="14" placeholder="Neved" autocomplete="off" />
+          <button id="boardSubmit" type="button">FELKERÜLÖK</button>
+        </div>
+        <div class="board-msg" id="boardMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restart confirm modal -->
+  <div class="modal hidden" id="resetModal">
+    <div class="reset-box">
+      <h2>ÚJRAINDÍTÁS</h2>
+      <p>Biztosan nullázol <b>mindent</b>? A kredit, a befizetések, az eredmény és a
+         duplázás-statisztika visszaáll a kezdeti állapotra. A toplista megmarad.</p>
+      <div class="reset-choices">
+        <button id="resetCancel" class="reset-btn cancel" type="button">MÉGSE</button>
+        <button id="resetConfirm" class="reset-btn danger" type="button">NULLÁZÁS</button>
+      </div>
     </div>
   </div>
 
