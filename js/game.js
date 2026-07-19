@@ -175,7 +175,7 @@ const state = {
 };
 
 const TOPUP_AMOUNT = 50;       // credit added by the top-up button
-const WITHDRAW_AMOUNT = 10;    // credit removed by the withdraw (cash-out) button
+const WITHDRAW_AMOUNT = 50;    // credit removed by the withdraw (cash-out) button
 const BUY_BONUS_COST = 50;     // free-spin bonus buy costs 50x total bet
 const SFX = window.SFX || { play() {}, toggleMute() { return false; }, setMuted() {}, get muted() { return false; }, resume() {} };
 
@@ -200,6 +200,9 @@ function reelSymbols(col) {
     if (def.kind === 'wild') continue; // wild is added below with the dynamic RTP weight
     if (def.kind === 'scatter' && !MIDDLE_REELS.includes(col)) continue;
     if (def.kind === 'gold' && !GOLD_REELS.includes(col)) continue; // gold: ends only
+    // During the scatter free game there are no gold or scatter symbols
+    // (no retrigger, no gold bonus) — only paying symbols and wild.
+    if (state.inFreeGame && (def.kind === 'scatter' || def.kind === 'gold')) continue;
     for (let i = 0; i < def.weight; i++) pool.push(id);
   }
   // WILD frequency is the RTP lever — a real, paying-helper symbol, not a
@@ -605,7 +608,11 @@ function setControlsEnabled(enabled) {
 /* ------------------------------ Leaderboard ----------------------------- */
 /* A local high-score table (survives restarts), ranked by the net result. */
 
-const DEFAULT_BOARD = [
+/* The leaderboard now starts EMPTY — only real, player-submitted scores ever
+ * appear on it. These are the demo names that used to seed it; a one-time
+ * migration strips them from any existing save so every player starts clean.
+ * After that the board is never touched programmatically (restart keeps it). */
+const LEGACY_SEED = [
   { name: 'VadászKirály', result: 1240 }, { name: 'TűzMester', result: 760 },
   { name: 'AranyÁsó', result: 430 }, { name: 'SzerencseLovag', result: 220 },
   { name: 'ErdeiFarkas', result: 90 }, { name: 'KezdőKaland', result: 20 },
@@ -621,7 +628,16 @@ function loadBoard() {
     const b = JSON.parse(localStorage.getItem('hd_board'));
     if (Array.isArray(b)) leaderboard = b.filter((e) => e && typeof e.name === 'string' && typeof e.result === 'number');
   } catch (e) { /* ignore */ }
-  if (!leaderboard.length) leaderboard = DEFAULT_BOARD.map((e) => ({ ...e }));
+  // One-time cleanup: drop the old seeded demo entries so the board starts
+  // empty. Runs once per browser; real player scores are always kept.
+  try {
+    if (!localStorage.getItem('hd_board_cleared')) {
+      const isSeed = (e) => LEGACY_SEED.some((s) => s.name === e.name && s.result === e.result);
+      leaderboard = leaderboard.filter((e) => !isSeed(e));
+      localStorage.setItem('hd_board_cleared', '1');
+      saveBoard();
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function saveBoard() {
@@ -632,6 +648,9 @@ function renderBoard() {
   const list = $('#boardList');
   if (list) {
     const sorted = [...leaderboard].sort((a, b) => b.result - a.result).slice(0, 20);
+    if (!sorted.length) {
+      list.innerHTML = '<li class="board-empty">Még senki sincs a toplistán — légy te az első! 🏆</li>';
+    } else
     list.innerHTML = sorted.map((e, i) => {
       const cls = e.result >= 0 ? 'pos' : 'neg';
       const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
@@ -1100,7 +1119,12 @@ async function doSpin() {
     } else {
       await animateSpin(null);               // base game or gold bonus spin
       const result = evaluateGrid();
-      await settleResult(result, goldSpinNow, wasAuto);
+      // If autoplay is set to stop on a big win and this spin is one, stop it
+      // now and let the gamble be offered on this final (stopping) spin.
+      const bigStop = !goldSpinNow && state.auto && state.autoStopBig
+        && result.totalWin >= totalBet() * 20;
+      if (bigStop) stopAutoplay();
+      await settleResult(result, goldSpinNow, wasAuto && !bigStop);
     }
 
     if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
@@ -1109,7 +1133,8 @@ async function doSpin() {
     if (!freeMode && state.auto && Number.isFinite(state.autoRemaining)) {
       state.autoRemaining = Math.max(0, state.autoRemaining - 1);
     }
-    // Stop autoplay on a big base-game win if requested.
+    // Stop autoplay on a big base-game win if requested (already handled above
+    // when a gamble was offered; this covers any remaining case defensively).
     if (!freeMode && state.auto && state.autoStopBig && state.lastWin >= totalBet() * 20) {
       stopAutoplay();
     }
