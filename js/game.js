@@ -166,6 +166,7 @@ const state = {
   bonusWin: 0,            // running total accumulated during the current bonus session
   gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
   gambleNet: 0,           // cumulative gamble result so far (won minus lost)
+  gambleHistory: [],      // last 10 drawn cards (kept across sessions + reloads)
   rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
   deposited: START_CREDIT,// total credits ever put in (initial + top-ups)
   withdrawn: 0,           // total credits ever taken out (cashed out)
@@ -586,6 +587,7 @@ function saveGame() {
       credit: state.credit, betIndex: state.betIndex,
       deposited: state.deposited, withdrawn: state.withdrawn,
       deposits: state.deposits.slice(-40), gambleNet: state.gambleNet,
+      gambleHistory: state.gambleHistory.slice(0, 10),
     }));
   } catch (e) { /* ignore */ }
 }
@@ -604,6 +606,11 @@ function loadGame() {
         state.deposits = s.deposits.filter((d) => d && typeof d.amount === 'number').slice(-40);
       }
       if (typeof s.gambleNet === 'number') state.gambleNet = round2(s.gambleNet);
+      if (Array.isArray(s.gambleHistory)) {
+        state.gambleHistory = s.gambleHistory
+          .filter((c) => c && typeof c.rank === 'string' && typeof c.s === 'string')
+          .slice(0, 10);
+      }
     }
   } catch (e) { /* ignore */ }
 }
@@ -1209,8 +1216,7 @@ function loadRtp() {
 /* Double-or-nothing on the last base-game win: guess the card colour. */
 
 let gambleRounds = 0;
-let gambleBusy = false;
-let gambleHistory = [];   // cards drawn this gamble session (for the ladder)
+let gambleBusy = false;   // gamble history persists in state.gambleHistory (last 10)
 
 const CARD_RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const CARD_SUITS = [
@@ -1235,8 +1241,7 @@ function openGamble() {
   if (state.gambleAmount <= 0 || state.spinning || state.inFreeGame || state.inGoldGame) return;
   gambleRounds = 0;
   gambleBusy = false;
-  gambleHistory = [];
-  renderGambleHistory();
+  renderGambleHistory();   // keep the previous cards; the last 10 stay visible
   updateGambleUI();
   const card = $('#gCard');
   card.className = 'gamble-card';
@@ -1273,8 +1278,8 @@ function setGambleChoicesEnabled(on) {
 function renderGambleHistory() {
   const wrap = $('#gHistory');
   if (!wrap) return;
-  if (!gambleHistory.length) { wrap.innerHTML = '<span class="gh-empty">Előzmények</span>'; return; }
-  wrap.innerHTML = gambleHistory
+  if (!state.gambleHistory.length) { wrap.innerHTML = '<span class="gh-empty">Előzmények</span>'; return; }
+  wrap.innerHTML = state.gambleHistory
     .map((c) => `<span class="gh-card ${c.red ? 'red' : 'black'}">${c.rank}<i>${c.s}</i></span>`)
     .join('');
 }
@@ -1298,10 +1303,11 @@ async function gambleGuess(choice) {
   card.innerHTML = `<span class="${suit.red ? 'red' : 'black'}">${rank} ${suit.s}</span>`;
   card.className = 'gamble-card ' + (suit.red ? 'is-red' : 'is-black');
 
-  // Record the draw in the history ladder (most recent first).
-  gambleHistory.unshift({ rank, s: suit.s, red: suit.red });
-  if (gambleHistory.length > 8) gambleHistory.pop();
+  // Record the draw in the history ladder (most recent first, keep last 10).
+  state.gambleHistory.unshift({ rank, s: suit.s, red: suit.red });
+  if (state.gambleHistory.length > 10) state.gambleHistory.pop();
   renderGambleHistory();
+  saveGame();
 
   const staked = state.gambleAmount;
   if (choice.test(suit, rank)) {
