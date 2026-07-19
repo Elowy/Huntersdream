@@ -762,11 +762,13 @@ function applyCombo(result) {
 function updateComboMeter() {
   const chip = $('#comboChip');
   if (!chip) return;
+  // The chip is ALWAYS present (fixed slot) so it never reflows the infobar —
+  // only its styling and text change between idle (×1) and an active streak.
   const next = comboMultFor(state.combo);        // multiplier the NEXT win will earn
   const active = state.combo > 0 && next > 1;
-  chip.classList.toggle('hidden', !active);
+  chip.classList.toggle('active', active);
   const v = $('#comboVal');
-  if (v) v.textContent = `🔥 ${state.combo}× · ×${next}`;
+  if (v) v.textContent = active ? `🔥${state.combo}·×${next}` : '🔥×1';
 }
 
 /* Expanding wild: in the free game a landed wild fills its entire reel. Make it

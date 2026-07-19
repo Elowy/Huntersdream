@@ -1064,39 +1064,58 @@ body::after {
 }
 
 /* ---------------- Engagement: infobar (level / jackpot / combo) --------- */
+/* Single-line info strip: never wraps, so nothing below ever shifts. The
+ * three chips shrink to fit; the jackpot value stays fully visible. */
 .infobar {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: stretch;
   margin: 4px 0 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .ib-level, .ib-jackpot, .ib-combo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 10px;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 9px;
   background: #0a0d14;
   border: 1px solid #2a2f3a;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12px;
 }
 .ib-level { cursor: pointer; color: #e7d3a0; flex: 0 0 auto; }
 .ib-level:hover { border-color: var(--gold-deep); }
 .ib-lvl { color: var(--gold); white-space: nowrap; }
-.ib-xp { position: relative; width: 70px; height: 8px; border-radius: 5px; background: #05070c; overflow: hidden; box-shadow: inset 0 0 0 1px #2a2f3a; }
+.ib-xp { position: relative; width: 44px; height: 7px; border-radius: 5px; background: #05070c; overflow: hidden; box-shadow: inset 0 0 0 1px #2a2f3a; }
 .ib-xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width .4s ease; }
 .ib-jackpot {
   flex: 1 1 auto;
+  min-width: 0;
   justify-content: space-between;
+  overflow: hidden;
   border-color: var(--gold-deep);
   background: linear-gradient(90deg, #1a1405, #241a06);
 }
-.ib-jp-label { color: var(--gold); letter-spacing: .04em; }
-.ib-jp-val { color: #fff3cf; font-family: "Courier New", monospace; font-weight: 900; text-shadow: 0 0 8px rgba(246,196,69,.5); }
+.ib-jp-label { flex: 0 0 auto; white-space: nowrap; color: var(--gold); letter-spacing: .03em; }
+/* The word "JACKPOT" only appears when there's room (wider screens); on phones
+ * the 💎 + value alone keeps the strip to a single tidy line. */
+.jp-word { display: none; }
+@media (min-width: 560px) { .jp-word { display: inline; } }
+.ib-jp-val { flex: 0 0 auto; white-space: nowrap; color: #fff3cf; font-family: "Courier New", monospace; font-weight: 900; text-shadow: 0 0 8px rgba(246,196,69,.5); }
+/* Combo chip: a FIXED slot that is always present so it never reflows the
+ * infobar. Idle = dim/muted; only an active streak lights it up + pulses. */
 .ib-combo {
   flex: 0 0 auto;
+  min-width: 60px;
+  justify-content: center;
+  white-space: nowrap;
+  color: #6b7280;
+  border-color: #2a2f3a;
+  background: #0a0d14;
+  transition: color .2s ease, border-color .2s ease, background .2s ease;
+}
+.ib-combo.active {
   color: #ffd9a0;
   border-color: #7a3010;
   background: linear-gradient(90deg, #2a1005, #3a1608);
