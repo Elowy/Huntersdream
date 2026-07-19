@@ -200,6 +200,9 @@ function reelSymbols(col) {
     if (def.kind === 'wild') continue; // wild is added below with the dynamic RTP weight
     if (def.kind === 'scatter' && !MIDDLE_REELS.includes(col)) continue;
     if (def.kind === 'gold' && !GOLD_REELS.includes(col)) continue; // gold: ends only
+    // During the scatter free game there are no gold or scatter symbols
+    // (no retrigger, no gold bonus) — only paying symbols and wild.
+    if (state.inFreeGame && (def.kind === 'scatter' || def.kind === 'gold')) continue;
     for (let i = 0; i < def.weight; i++) pool.push(id);
   }
   // WILD frequency is the RTP lever — a real, paying-helper symbol, not a
