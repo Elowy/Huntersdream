@@ -643,22 +643,31 @@ body::after {
 .gamble-box h2 { color: var(--gold); margin-bottom: 12px; letter-spacing: 1px; }
 .gamble-amounts {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.gamble-amounts .ga-col {
+  flex: 1;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(246,196,69,0.35);
+  border-radius: 8px;
+  padding: 6px 4px;
   font-weight: 900;
-  font-size: 20px;
+  font-size: clamp(13px, 3.4vw, 17px);
   color: var(--green-led);
 }
+.gamble-amounts .ga-col:nth-child(2) b { color: #ffd76a; }
+.gamble-amounts .ga-col:nth-child(3) b { color: #ff9a3b; }
 .gamble-amounts .ga-label {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   color: #c9a24a;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   font-weight: 700;
+  margin-bottom: 2px;
 }
-.gamble-amounts .ga-arrow { color: var(--gold); font-size: 24px; }
 .gamble-card {
   width: 110px;
   height: 150px;
@@ -718,6 +727,95 @@ body::after {
 @keyframes goldpop {
   0% { transform: translate(-50%, -46%) scale(1.6); }
   100% { transform: translate(-50%, -46%) scale(1); }
+}
+
+/* ---------- Gamble: history ladder + suit (×4) buttons ---------- */
+.gamble-history {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  flex-wrap: wrap;
+  min-height: 34px;
+  margin-bottom: 10px;
+}
+.gh-empty { color: #7a8090; font-size: 12px; align-self: center; }
+.gh-card {
+  width: 26px;
+  height: 34px;
+  border-radius: 5px;
+  background: linear-gradient(145deg, #f6f6ee, #dcdac8);
+  border: 1px solid #b8b090;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 11px;
+  line-height: 1.05;
+}
+.gh-card i { font-style: normal; font-size: 12px; }
+.gh-card.red { color: #d02020; }
+.gh-card.black { color: #1a1a1a; }
+
+.gamble-suits-label {
+  font-size: 11px;
+  color: #c9a24a;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.gamble-suits { display: flex; gap: 8px; margin-bottom: 12px; }
+.g-suit {
+  flex: 1;
+  padding: 12px 4px;
+  border: 2px solid #2a2f3a;
+  border-radius: 10px;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(180deg, #f2f2ea, #d4d2c0);
+  box-shadow: 0 3px 0 #9a9070;
+}
+.g-suit.red { color: #d02020; }
+.g-suit.black { color: #1a1a1a; }
+.g-suit:active { transform: translateY(3px); box-shadow: none; }
+.g-suit:disabled { opacity: 0.5; cursor: not-allowed; }
+.g-choice small { font-size: 0.72em; opacity: 0.85; }
+
+/* ---------- Session history panel ---------- */
+.history-panel {
+  background: #05070d;
+  border: 2px solid var(--gold-deep);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 10px;
+}
+.hp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hp-cell { text-align: center; }
+.hp-label { display: block; font-size: 10px; color: #c9a24a; letter-spacing: 1px; }
+.hp-value {
+  display: block;
+  font-family: "Courier New", monospace;
+  font-size: clamp(14px, 3.6vw, 20px);
+  font-weight: 900;
+  color: #cfe4ff;
+}
+.hp-value.net.pos { color: var(--green-led); text-shadow: 0 0 8px rgba(77,255,119,0.5); }
+.hp-value.net.neg { color: #ff6a6a; text-shadow: 0 0 8px rgba(255,80,80,0.5); }
+.hp-log {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+  min-height: 14px;
+}
+.hp-log-item {
+  font-size: 10px;
+  color: #7dff9a;
+  background: rgba(35,165,68,0.18);
+  border: 1px solid rgba(125,255,154,0.35);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 .hidden { display: none !important; }

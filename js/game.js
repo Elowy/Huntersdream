@@ -117,18 +117,31 @@ const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
  * original machine); the return is controlled on the REELS by how often the
  * WILD symbol appears — a real, paying-helper symbol, not a filler. More
  * wild => more (and bigger) wins => higher RTP. WILD_TABLE[rtp-80] is the
- * wild weight (on the x10 reel scale) measured by Monte Carlo per target. */
-const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent
+ * wild weight (on the x10 reel scale) measured by Monte Carlo per target.
+ * The base game uses the slider RTP (80-120%); the scatter free game runs
+ * richer at BONUS_RTP, so the table is calibrated all the way up to 150%. */
+const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent (base slider)
+const BONUS_RTP = 150;   // scatter free games are more generous than the base game
 const WILD_TABLE = [
-  77, 77, 78, 79, 79, 80, 81, 81, 82, 83, 84, 84, 85, 86, 86, 87, 88, 88, 89, 89,
-  90, 91, 91, 92, 93, 93, 94, 95, 95, 96, 96, 97, 97, 98, 99, 99, 100, 100, 101, 102, 102,
+  77, 77, 78, 79, 79, 80, 81, 81, 82, 83, 84, 84, 85, 86, 86, 87, 88, 88, 89, 89,   // 80-99%
+  90, 91, 91, 92, 93, 93, 94, 95, 95, 96, 96, 97, 97, 98, 99, 99, 100, 100, 101, 102, // 100-119%
+  102, 103, 103, 104, 104, 105, 105, 106, 107, 108, 108, 108, 109, 109, 110, 110, 111, 111, 112, 112, // 120-139%
+  113, 114, 114, 115, 116, 116, 116, 117, 117, 118, 119,   // 140-150% (BONUS_RTP lookup)
 ];
 let activeWild = null;   // wild weight snapshot for the current spin
 function wildWeightFor(rtp) {
   const i = Math.max(0, Math.min(WILD_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
   return WILD_TABLE[i];
 }
-function wildWeight() { return activeWild != null ? activeWild : wildWeightFor(state.rtp); }
+/* Effective wild weight for the current mode: the base slider RTP normally,
+ * the richer BONUS_RTP during the scatter free game, and an extra ×4 during
+ * the signature "wild spins" gold bonus. */
+function effectiveWildWeight() {
+  if (state.inGoldGame) return wildWeightFor(state.rtp) * 4;
+  if (state.inFreeGame) return wildWeightFor(BONUS_RTP);
+  return wildWeightFor(state.rtp);
+}
+function wildWeight() { return activeWild != null ? activeWild : effectiveWildWeight(); }
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -147,8 +160,11 @@ const state = {
   autoStopBonus: true,    // stop autoplay when a bonus triggers
   autoStopBig: false,     // stop autoplay on a big win
   lastWin: 0,
+  bonusWin: 0,            // running total accumulated during the current bonus session
   gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
   rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
+  deposited: START_CREDIT,// total credits ever put in (initial + top-ups)
+  deposits: [],           // log of deposit amounts, for the history panel
 };
 
 const TOPUP_AMOUNT = 10;       // credit added by the top-up button
@@ -175,10 +191,10 @@ function reelSymbols(col) {
     for (let i = 0; i < def.weight; i++) pool.push(id);
   }
   // WILD frequency is the RTP lever — a real, paying-helper symbol, not a
-  // filler. Not on the first reel; boosted during the gold bonus spins.
+  // filler. Not on the first reel. The mode-specific weight (base / richer
+  // free game / ×4 gold bonus) is resolved by effectiveWildWeight().
   if (col !== 0) {
-    let ww = wildWeight();
-    if (state.inGoldGame) ww *= 4;
+    const ww = wildWeight();
     for (let i = 0; i < ww; i++) pool.push('wild');
   }
   return pool;
@@ -287,12 +303,9 @@ function renderCell(c, r) {
   const id = state.grid[c][r];
   const def = SYMBOLS[id];
   const cell = cellEls[c][r];
-  let html = artFor(id);
-  if (id === 'gold') {
-    const v = state.goldValues[c + ',' + r] || 1;
-    html += `<span class="gold-mult">${v}×</span>`;
-  }
-  cell.querySelector('.sym').innerHTML = html;
+  // The gold multiplier badge is NOT drawn here: a gold coin only shows a
+  // number when it actually multiplies a win (revealed in revealGoldMultipliers).
+  cell.querySelector('.sym').innerHTML = artFor(id);
   cell.className = 'cell ' + def.kind + ' sym-' + id;
 }
 
@@ -448,20 +461,28 @@ function showWinLines(result) {
 }
 
 /* Present winning lines ONE BY ONE: each line flashes on its own with its
- * amount, ticking the win meter and credit up, then a combined total. */
-async function presentWins(result, { fast } = {}) {
+ * amount, then a combined total. In `bonus` mode the wins are NOT credited
+ * per spin — they accumulate into state.bonusWin (shown as the running total)
+ * and are banked in one lump when the bonus ends. Base spins pay as they go. */
+async function presentWins(result, { fast, bonus } = {}) {
   const wins = [...result.lineWins].sort((a, b) => b.win - a.win);
   if (!wins.length) return 0;
 
   const per = fast ? 600 : 900;
-  state.lastWin = 0;
-  updateMeters();
+  if (!bonus) { state.lastWin = 0; updateMeters(); }
 
+  let roundWin = 0;
   for (const lw of wins) {
     clearWinVisuals();
     drawLine(lw);
-    state.lastWin = round2(state.lastWin + lw.win);
-    state.credit = round2(state.credit + lw.win);
+    roundWin = round2(roundWin + lw.win);
+    if (bonus) {
+      state.bonusWin = round2(state.bonusWin + lw.win);
+      state.lastWin = state.bonusWin;                    // keep the running total on screen
+    } else {
+      state.lastWin = round2(state.lastWin + lw.win);
+      state.credit = round2(state.credit + lw.win);      // base game pays line by line
+    }
     updateMeters();
     SFX.play('win');
     const wildTag = lw.wilds > 0 ? `  🔥×${lw.multiplier}` : '';
@@ -472,13 +493,15 @@ async function presentWins(result, { fast } = {}) {
   // Combined view + total.
   clearWinVisuals();
   showWinLines(result);
-  const big = state.lastWin >= totalBet() * 15;
+  const big = roundWin >= totalBet() * 15;
   const goldTag = result.goldMultiplier > 1 ? `🪙×${result.goldMultiplier}  ` : '';
   if (wins.length > 1 || big || goldTag) {
-    showWinPopup(`${goldTag}${big ? 'NAGY NYEREMÉNY!  ' : 'ÖSSZESEN  '}${fmt(state.lastWin)} €`);
+    const shown = bonus ? state.bonusWin : state.lastWin;
+    const label = bonus ? 'BÓNUSZ ÖSSZ.  ' : (big ? 'NAGY NYEREMÉNY!  ' : 'ÖSSZESEN  ');
+    showWinPopup(`${goldTag}${label}${fmt(shown)} €`);
     await sleep(fast ? 950 : 1400);
   }
-  return state.lastWin;
+  return roundWin;
 }
 
 function showWinPopup(text) {
@@ -507,6 +530,29 @@ function updateMeters() {
   $('#freeSpinsLeft').textContent = gold ? state.goldSpins : state.freeSpins;
   const buyCost = $('#buyCost');
   if (buyCost) buyCost.textContent = fmt(buyBonusCost());
+  updateHistoryPanel();
+}
+
+/* History panel: total deposited vs. current balance, and the running net
+ * result (+/-) so the player can see how far up or down they are. */
+function updateHistoryPanel() {
+  const dep = round2(state.deposited);
+  const bal = round2(state.credit);
+  const net = round2(bal - dep);
+  const setTxt = (sel, txt) => { const el = $(sel); if (el) el.textContent = txt; };
+  setTxt('#hpDeposited', fmt(dep) + ' €');
+  setTxt('#hpBalance', fmt(bal) + ' €');
+  const n = $('#hpNet');
+  if (n) {
+    n.textContent = (net >= 0 ? '+' : '−') + fmt(Math.abs(net)) + ' €';
+    n.classList.toggle('pos', net >= 0);
+    n.classList.toggle('neg', net < 0);
+  }
+  const log = $('#hpLog');
+  if (log) {
+    log.innerHTML = state.deposits.slice(-6).reverse()
+      .map((e) => `<span class="hp-log-item">+${fmt(e.amount)} €</span>`).join('');
+  }
 }
 
 function setControlsEnabled(enabled) {
@@ -519,7 +565,10 @@ function setControlsEnabled(enabled) {
 
 function saveGame() {
   try {
-    localStorage.setItem('hd_save', JSON.stringify({ credit: state.credit, betIndex: state.betIndex }));
+    localStorage.setItem('hd_save', JSON.stringify({
+      credit: state.credit, betIndex: state.betIndex,
+      deposited: state.deposited, deposits: state.deposits.slice(-40),
+    }));
   } catch (e) { /* ignore */ }
 }
 
@@ -531,6 +580,10 @@ function loadGame() {
       if (Number.isInteger(s.betIndex) && s.betIndex >= 0 && s.betIndex < BET_STEPS.length) {
         state.betIndex = s.betIndex;
       }
+      if (typeof s.deposited === 'number' && s.deposited >= 0) state.deposited = round2(s.deposited);
+      if (Array.isArray(s.deposits)) {
+        state.deposits = s.deposits.filter((d) => d && typeof d.amount === 'number').slice(-40);
+      }
     }
   } catch (e) { /* ignore */ }
 }
@@ -540,6 +593,9 @@ function loadGame() {
 function topUp() {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   state.credit = round2(state.credit + TOPUP_AMOUNT);
+  state.deposited = round2(state.deposited + TOPUP_AMOUNT);
+  state.deposits.push({ amount: TOPUP_AMOUNT });
+  if (state.deposits.length > 40) state.deposits = state.deposits.slice(-40);
   SFX.play('coin');
   updateMeters();
   saveGame();
@@ -562,6 +618,7 @@ async function buyBonus() {
   SFX.play('click');
   updateMeters();
   saveGame();
+  state.bonusWin = 0;              // fresh bonus accumulator
   state.inFreeGame = true;
   state.freeSpins = FREE_SPINS_AWARD;
   SFX.play('freespins');
@@ -772,38 +829,39 @@ async function animateSpin(holdSet) {
     await sleep(150); // stagger reel stop
   }
 
-  // Reveal the gold multiplier value with a short rolling animation.
-  await revealGoldMultipliers(holdSet);
+  // Gold multipliers are revealed later, only if the spin actually wins (#8).
 }
 
-/* Roll the gold coins' multiplier numbers, then settle on the real value. */
-async function revealGoldMultipliers(holdSet) {
+/* Ensure a gold cell has its multiplier badge element (created on demand so
+ * the coin shows no number until it multiplies a win). */
+function goldBadge(c, r) {
+  const sym = cellEls[c][r].querySelector('.sym');
+  let el = sym.querySelector('.gold-mult');
+  if (!el) { el = document.createElement('span'); el.className = 'gold-mult'; sym.appendChild(el); }
+  return el;
+}
+
+/* Roll every board gold coin's multiplier number, then settle on the real
+ * value. Called only when there is a line win to multiply, so a gold coin
+ * never shows a number on a losing spin. */
+async function revealGoldMultipliers() {
   const cells = [];
-  for (const c of GOLD_REELS) {
-    for (let r = 0; r < ROWS; r++) {
-      if (state.grid[c][r] === 'gold' && !(holdSet && holdSet.has(c + ',' + r))) {
-        cells.push([c, r]);
-      }
-    }
-  }
+  for (const c of GOLD_REELS)
+    for (let r = 0; r < ROWS; r++)
+      if (state.grid[c][r] === 'gold') cells.push([c, r]);
   if (!cells.length) return;
   const vals = ['1', '1.5', '2'];
   for (let f = 0; f < 9; f++) {
-    for (const [c, r] of cells) {
-      const el = cellEls[c][r].querySelector('.gold-mult');
-      if (el) el.textContent = vals[Math.floor(Math.random() * vals.length)] + '×';
-    }
+    for (const [c, r] of cells) goldBadge(c, r).textContent = vals[Math.floor(Math.random() * vals.length)] + '×';
     SFX.play('goldRoll');
     await sleep(75);
   }
   for (const [c, r] of cells) {
-    const el = cellEls[c][r].querySelector('.gold-mult');
-    if (el) {
-      el.textContent = (state.goldValues[c + ',' + r] || 1) + '×';
-      el.classList.remove('reveal');
-      void el.offsetWidth;
-      el.classList.add('reveal');
-    }
+    const el = goldBadge(c, r);
+    el.textContent = (state.goldValues[c + ',' + r] || 1) + '×';
+    el.classList.remove('reveal');
+    void el.offsetWidth;
+    el.classList.add('reveal');
   }
   SFX.play('gold');
   await sleep(200);
@@ -819,6 +877,9 @@ async function doSpin() {
   // A spin is free (no stake) during scatter free games or gold bonus spins.
   const goldSpinNow = state.inGoldGame;
   const freeMode = state.inFreeGame || state.inGoldGame;
+  // Whether this spin was auto-initiated. Captured up front so the gamble is
+  // never offered on an autoplay spin, even if autoplay is stopped mid-flight.
+  const wasAuto = state.auto;
 
   if (!freeMode) {
     if (state.credit < totalBet()) {
@@ -831,10 +892,11 @@ async function doSpin() {
   }
 
   state.spinning = true;
-  state.lastWin = 0;
-  // Snapshot the reel WILD weight so a mid-spin RTP slider change never
-  // affects the symbols still landing on the in-flight spin.
-  activeWild = wildWeightFor(state.rtp);
+  // During a bonus keep the accumulated total on screen; base spins reset.
+  state.lastWin = freeMode ? state.bonusWin : 0;
+  // Snapshot the mode-aware reel WILD weight so a mid-spin RTP slider change
+  // never affects the symbols still landing on the in-flight spin.
+  activeWild = effectiveWildWeight();
   clearWinVisuals();
   hideWinPopup();
   updateMeters();
@@ -850,7 +912,7 @@ async function doSpin() {
     } else {
       await animateSpin(null);               // base game or gold bonus spin
       const result = evaluateGrid();
-      await settleResult(result, goldSpinNow);
+      await settleResult(result, goldSpinNow, wasAuto);
     }
 
     if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
@@ -895,9 +957,10 @@ async function doSpin() {
 }
 
 /* Settle a base-game or gold-bonus spin result. */
-async function settleResult(result, isFree) {
+async function settleResult(result, isFree, wasAuto) {
   if (result.totalWin > 0) {
-    await presentWins(result, { fast: state.auto || isFree });
+    if (result.goldCount > 0) await revealGoldMultipliers();  // #8: reveal only on a win
+    await presentWins(result, { fast: state.auto || isFree, bonus: isFree });
     if (!isFree) await bigWinCelebration(result.totalWin);
     hideWinPopup();
   }
@@ -910,8 +973,8 @@ async function settleResult(result, isFree) {
     } else if (result.goldCount >= GOLD_TRIGGER) {
       if (state.auto && state.autoStopBonus) stopAutoplay();
       await triggerGoldGame(result);
-    } else if (result.totalWin > 0 && !state.auto) {
-      offerGamble(result.totalWin);        // base win -> offer double-or-nothing
+    } else if (result.totalWin > 0 && !wasAuto) {
+      offerGamble(result.totalWin);        // base win -> gamble (never on an autoplay spin)
     }
   } else if (state.inGoldGame && result.goldCount >= GOLD_TRIGGER) {
     await triggerGoldGame(result);         // retrigger more gold spins
@@ -923,6 +986,7 @@ async function triggerGoldGame(result) {
     const [c, r] = p.split(',').map(Number);
     cellEls[c][r].classList.add('win-cell');
   });
+  if (!state.inGoldGame) state.bonusWin = 0;   // start a fresh bonus accumulator
   state.goldSpins += GOLD_BONUS_SPINS;
   state.inGoldGame = true;
   SFX.play('freespins');
@@ -935,9 +999,27 @@ async function triggerGoldGame(result) {
 function endGoldGame() {
   state.inGoldGame = false;
   state.goldSpins = 0;
-  showWinPopup('ARANY BÓNUSZ VÉGE');
+  finishBonus('ARANY BÓNUSZ VÉGE');
+}
+
+/* Close out a bonus session: bank the whole accumulated total at once, show
+ * it, and offer to gamble it (unless autoplay is still running). */
+function finishBonus(label) {
+  const total = round2(state.bonusWin);
+  state.bonusWin = 0;
+  if (total > 0) {
+    state.credit = round2(state.credit + total);   // pay the bonus in one lump at the end
+    state.lastWin = total;
+  }
   updateMeters();
-  setTimeout(hideWinPopup, 1500);
+  saveGame();
+  if (total > 0) {
+    showWinPopup(`${label} — ${fmt(total)} €`);
+    if (!state.auto) offerGamble(total);            // scatter/gold total is gambleable (#2)
+  } else {
+    showWinPopup(label);
+  }
+  setTimeout(hideWinPopup, 1800);
 }
 
 function round2(n) { return Math.round(n * 100) / 100; }
@@ -951,6 +1033,7 @@ async function triggerFreeGames(result) {
     cellEls[c][r].classList.add('win-cell');
   });
   const first = !state.inFreeGame;
+  if (first) state.bonusWin = 0;               // start a fresh bonus accumulator
   state.freeSpins += FREE_SPINS_AWARD;
   SFX.play('freespins');
   showWinPopup(`🏚️ ${FREE_SPINS_AWARD} INGYENES JÁTÉK!`);
@@ -965,9 +1048,7 @@ async function triggerFreeGames(result) {
 function endFreeGame() {
   state.inFreeGame = false;
   clearStickies();
-  showWinPopup('INGYENES JÁTÉKOK VÉGE');
-  updateMeters();
-  setTimeout(hideWinPopup, 1600);
+  finishBonus('INGYENES JÁTÉKOK VÉGE');
 }
 
 function clearStickies() {
@@ -1027,12 +1108,13 @@ async function freeSpinRound() {
 
   clearStickies();
 
-  // Pay the best win found this free spin, line by line.
+  // Accumulate the best win of this free spin (banked in one lump at the end).
   if (bestWin > 0) {
     // Restore the best grid so the highlighted cells match the payout.
     state.grid = bestGrid;
     renderGrid();
-    await presentWins(result, { fast: true });
+    if (result.goldCount > 0) await revealGoldMultipliers();  // #8: reveal only on a win
+    await presentWins(result, { fast: true, bonus: true });
     hideWinPopup();
   }
 
@@ -1086,6 +1168,7 @@ function loadRtp() {
 
 let gambleRounds = 0;
 let gambleBusy = false;
+let gambleHistory = [];   // cards drawn this gamble session (for the ladder)
 
 const CARD_RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const CARD_SUITS = [
@@ -1110,11 +1193,13 @@ function openGamble() {
   if (state.gambleAmount <= 0 || state.spinning || state.inFreeGame || state.inGoldGame) return;
   gambleRounds = 0;
   gambleBusy = false;
+  gambleHistory = [];
+  renderGambleHistory();
   updateGambleUI();
   const card = $('#gCard');
   card.className = 'gamble-card';
   card.innerHTML = '<span>?</span>';
-  $('#gMsg').textContent = 'Válassz színt!';
+  $('#gMsg').textContent = 'Tippelj: szín ×2 vagy szimbólum ×4';
   $('#gMsg').className = 'gamble-msg';
   setGambleChoicesEnabled(true);
   $('#gambleModal').classList.remove('hidden');
@@ -1122,16 +1207,31 @@ function openGamble() {
 
 function updateGambleUI() {
   $('#gStake').textContent = fmt(state.gambleAmount);
-  $('#gDouble').textContent = fmt(round2(state.gambleAmount * 2));
+  const w2 = $('#gWin2'), w4 = $('#gWin4');
+  if (w2) w2.textContent = fmt(round2(state.gambleAmount * 2));
+  if (w4) w4.textContent = fmt(round2(state.gambleAmount * 4));
 }
 
 function setGambleChoicesEnabled(on) {
   $('#gRed').disabled = !on;
   $('#gBlack').disabled = !on;
+  document.querySelectorAll('#gambleModal .g-suit').forEach((b) => { b.disabled = !on; });
   $('#gCollect').disabled = !on;
 }
 
-async function gambleChoose(guessRed) {
+/* Render the ladder of previously drawn cards (most recent first). */
+function renderGambleHistory() {
+  const wrap = $('#gHistory');
+  if (!wrap) return;
+  if (!gambleHistory.length) { wrap.innerHTML = '<span class="gh-empty">Előzmények</span>'; return; }
+  wrap.innerHTML = gambleHistory
+    .map((c) => `<span class="gh-card ${c.red ? 'red' : 'black'}">${c.rank}<i>${c.s}</i></span>`)
+    .join('');
+}
+
+/* Resolve one gamble. `choice` is { mult, test }: colour guesses pay ×2 and
+ * match on red/black; exact-suit guesses pay ×4 and match the suit symbol. */
+async function gambleGuess(choice) {
   if (gambleBusy || state.gambleAmount <= 0) return;
   gambleBusy = true;
   setGambleChoicesEnabled(false);
@@ -1146,15 +1246,21 @@ async function gambleChoose(guessRed) {
   card.innerHTML = `<span class="${suit.red ? 'red' : 'black'}">${rank} ${suit.s}</span>`;
   card.className = 'gamble-card ' + (suit.red ? 'is-red' : 'is-black');
 
-  if (guessRed === suit.red) {
-    state.credit = round2(state.credit + state.gambleAmount);   // double
-    state.gambleAmount = round2(state.gambleAmount * 2);
+  // Record the draw in the history ladder (most recent first).
+  gambleHistory.unshift({ rank, s: suit.s, red: suit.red });
+  if (gambleHistory.length > 8) gambleHistory.pop();
+  renderGambleHistory();
+
+  if (choice.test(suit)) {
+    const gain = round2(state.gambleAmount * (choice.mult - 1));
+    state.credit = round2(state.credit + gain);            // top up to the multiplied amount
+    state.gambleAmount = round2(state.gambleAmount * choice.mult);
     state.lastWin = state.gambleAmount;
     gambleRounds++;
     updateGambleUI();
     updateMeters();
     SFX.play('gambleWin');
-    $('#gMsg').textContent = `NYERTÉL!  ${fmt(state.gambleAmount)} €`;
+    $('#gMsg').textContent = `NYERTÉL! ×${choice.mult} → ${fmt(state.gambleAmount)} €`;
     $('#gMsg').className = 'gamble-msg win';
     await sleep(1100);
     if (gambleRounds >= GAMBLE_MAX_ROUNDS || state.gambleAmount >= GAMBLE_MAX_WIN) {
@@ -1168,7 +1274,7 @@ async function gambleChoose(guessRed) {
       gambleBusy = false;
     }
   } else {
-    state.credit = round2(state.credit - state.gambleAmount);   // lose it
+    state.credit = round2(state.credit - state.gambleAmount);   // lose the staked win
     state.gambleAmount = 0;
     state.lastWin = 0;
     updateMeters();
@@ -1220,6 +1326,7 @@ function buildPaytable() {
 
 function init() {
   loadGame();          // restore saved credit / bet
+  if (!state.deposits.length) state.deposits.push({ amount: state.deposited });  // seed the log
   buildBoard();
   buildPaytable();
   updateMeters();
@@ -1285,10 +1392,13 @@ function init() {
   fxResize();
   window.addEventListener('resize', fxResize);
 
-  // Gamble (double-or-nothing) wiring.
+  // Gamble wiring: colour guess = ×2, exact suit guess = ×4.
   $('#gambleBtn').addEventListener('click', openGamble);
-  $('#gRed').addEventListener('click', () => gambleChoose(true));
-  $('#gBlack').addEventListener('click', () => gambleChoose(false));
+  $('#gRed').addEventListener('click', () => gambleGuess({ mult: 2, test: (s) => s.red === true }));
+  $('#gBlack').addEventListener('click', () => gambleGuess({ mult: 2, test: (s) => s.red === false }));
+  document.querySelectorAll('#gambleModal .g-suit').forEach((b) => {
+    b.addEventListener('click', () => gambleGuess({ mult: 4, test: (s) => s.s === b.dataset.suit }));
+  });
   $('#gCollect').addEventListener('click', () => { if (!gambleBusy) gambleCollect(); });
   $('#gambleModal').addEventListener('click', (e) => {
     if (e.target.id === 'gambleModal' && !gambleBusy) gambleCollect();
@@ -1310,4 +1420,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, wildWeight, wildWeightFor, reelSymbols };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, revealGoldMultipliers, settleResult, clearGamble };

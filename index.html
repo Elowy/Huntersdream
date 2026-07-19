@@ -76,6 +76,16 @@
       <button class="btn auto-btn" id="autoBtn" type="button">AUTO</button>
     </section>
 
+    <!-- Session history: deposits vs. balance and net +/- result -->
+    <section class="history-panel" id="historyPanel">
+      <div class="hp-grid">
+        <div class="hp-cell"><span class="hp-label">BEFIZETVE</span><span class="hp-value" id="hpDeposited">10.00 €</span></div>
+        <div class="hp-cell"><span class="hp-label">EGYENLEG</span><span class="hp-value" id="hpBalance">10.00 €</span></div>
+        <div class="hp-cell"><span class="hp-label">EREDMÉNY</span><span class="hp-value net pos" id="hpNet">+0.00 €</span></div>
+      </div>
+      <div class="hp-log" id="hpLog"></div>
+    </section>
+
     <footer class="footer">
       <span>Az összes érték EUR-ban · 5 tárcsa · 20 nyerővonal</span>
     </footer>
@@ -108,35 +118,49 @@
             3 Scatter a 3 középső tárcsán <b>10 ingyenes játékot</b> indít.</li>
         <li><b>Sticky Free Spins:</b> az ingyenes játékokban a nyerő szimbólumok
             ragadnak, a tárcsák újrapörögnek a magasabb nyereményekért. Újabb 10
-            ingyenes játék nyerhető az ingyenes játék módban.</li>
+            ingyenes játék nyerhető az ingyenes játék módban. A nyeremények
+            <b>összeadódnak</b>, és a bónusz <b>végén</b> egyben kerülnek kifizetésre.</li>
+        <li><b>Bónusz kifizetési szint:</b> az ingyenes játékok az alapjátéknál
+            <b>bőkezűbb, kb. 150%-os</b> szinten futnak (gyakoribb WILD).</li>
         <li><b>GOLD</b> (🪙) csak az <b>első és utolsó</b> tárcsán jelenik meg, és
-            <b>1×, 1.5× vagy 2×</b> szorzót hordoz (a magasabb ritkább, max 2×). Ha van
-            nyeremény, a gold megszorozza a <b>teljes nyereményt</b>. Az ingyenes
-            játékban a GOLD <b>ragad</b>. <b>3 vagy több GOLD</b> a pályán <b>5 pörgetést</b>
-            indít, amelyben <b>több WILD</b> jelenik meg.</li>
-        <li><b>DUPLÁZÁS:</b> nyeremény után a <b>DUPLÁZÁS</b> gombbal kockáztathatsz —
-            találd el a lap színét (<b>piros</b> vagy <b>fekete</b>). Talált szín esetén
-            a nyeremény <b>duplázódik</b>, tévedésnél <b>elveszik</b>. Bármikor
-            <b>elviheted</b> a nyereményt.</li>
+            <b>1×, 1.5× vagy 2×</b> szorzót hordoz (a magasabb ritkább, max 2×). A szorzó
+            <b>csak akkor jelenik meg</b>, ha van nyeremény, amit meg tud szorozni — ilyenkor
+            a <b>teljes nyereményt</b> szorozza. Az ingyenes játékban a GOLD <b>ragad</b>.
+            <b>3 vagy több GOLD</b> a pályán <b>5 pörgetést</b> indít, amelyben
+            <b>több WILD</b> jelenik meg.</li>
+        <li><b>DUPLÁZÁS:</b> nyeremény után (a <b>bónusznyeremény</b> is)
+            kockáztathatsz — találd el a lap <b>színét</b> (piros/fekete) a
+            nyereményed <b>×2</b>-éért, vagy a pontos <b>szimbólumot</b> (♥ ♦ ♠ ♣)
+            <b>×4</b>-ért. Tévedésnél <b>elveszik</b>; bármikor <b>elviheted</b>. A
+            duplázó a korábban húzott lapokat is mutatja. Automata pörgetés alatt
+            nincs duplázás.</li>
       </ul>
       <div id="paytableWrap" class="paytable"></div>
     </div>
   </div>
 
-  <!-- Gamble (double-or-nothing) modal -->
+  <!-- Gamble (double / quadruple) modal -->
   <div class="modal hidden" id="gambleModal">
     <div class="gamble-box">
       <h2>DUPLÁZÁS</h2>
       <div class="gamble-amounts">
-        <div><span class="ga-label">TÉT</span><span id="gStake">0.00</span> €</div>
-        <div class="ga-arrow">→</div>
-        <div><span class="ga-label">DUPLA</span><span id="gDouble">0.00</span> €</div>
+        <div class="ga-col"><span class="ga-label">TÉT</span><b id="gStake">0.00</b> €</div>
+        <div class="ga-col"><span class="ga-label">SZÍN ×2</span><b id="gWin2">0.00</b> €</div>
+        <div class="ga-col"><span class="ga-label">SZIMBÓLUM ×4</span><b id="gWin4">0.00</b> €</div>
       </div>
+      <div class="gamble-history" id="gHistory"></div>
       <div class="gamble-card" id="gCard"><span>?</span></div>
-      <div class="gamble-msg" id="gMsg">Válassz színt!</div>
+      <div class="gamble-msg" id="gMsg">Tippelj: szín ×2 vagy szimbólum ×4</div>
       <div class="gamble-choices">
-        <button id="gRed" class="g-choice g-red" type="button">PIROS ♥ ♦</button>
-        <button id="gBlack" class="g-choice g-black" type="button">FEKETE ♠ ♣</button>
+        <button id="gRed" class="g-choice g-red" type="button">PIROS ♥ ♦ <small>×2</small></button>
+        <button id="gBlack" class="g-choice g-black" type="button">FEKETE ♠ ♣ <small>×2</small></button>
+      </div>
+      <div class="gamble-suits-label">Szimbólum tipp — ×4</div>
+      <div class="gamble-suits">
+        <button class="g-suit red" data-suit="♥" type="button">♥</button>
+        <button class="g-suit red" data-suit="♦" type="button">♦</button>
+        <button class="g-suit black" data-suit="♠" type="button">♠</button>
+        <button class="g-suit black" data-suit="♣" type="button">♣</button>
       </div>
       <button id="gCollect" class="g-collect" type="button">ELVISZ</button>
     </div>
