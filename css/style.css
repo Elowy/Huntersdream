@@ -924,6 +924,7 @@ body::after {
   font-weight: 700;
 }
 .board-row.you { border-color: var(--gold); box-shadow: 0 0 10px rgba(246,196,69,0.35); }
+.board-empty { list-style: none; padding: 22px 10px; text-align: center; color: #9aa3b2; font-weight: 700; }
 .br-rank { flex: 0 0 34px; font-size: 15px; color: #c9a24a; text-align: center; }
 .br-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e7d3a0; }
 .br-res { flex: 0 0 auto; font-family: "Courier New", monospace; font-weight: 900; }

@@ -608,7 +608,11 @@ function setControlsEnabled(enabled) {
 /* ------------------------------ Leaderboard ----------------------------- */
 /* A local high-score table (survives restarts), ranked by the net result. */
 
-const DEFAULT_BOARD = [
+/* The leaderboard now starts EMPTY — only real, player-submitted scores ever
+ * appear on it. These are the demo names that used to seed it; a one-time
+ * migration strips them from any existing save so every player starts clean.
+ * After that the board is never touched programmatically (restart keeps it). */
+const LEGACY_SEED = [
   { name: 'VadászKirály', result: 1240 }, { name: 'TűzMester', result: 760 },
   { name: 'AranyÁsó', result: 430 }, { name: 'SzerencseLovag', result: 220 },
   { name: 'ErdeiFarkas', result: 90 }, { name: 'KezdőKaland', result: 20 },
@@ -624,7 +628,16 @@ function loadBoard() {
     const b = JSON.parse(localStorage.getItem('hd_board'));
     if (Array.isArray(b)) leaderboard = b.filter((e) => e && typeof e.name === 'string' && typeof e.result === 'number');
   } catch (e) { /* ignore */ }
-  if (!leaderboard.length) leaderboard = DEFAULT_BOARD.map((e) => ({ ...e }));
+  // One-time cleanup: drop the old seeded demo entries so the board starts
+  // empty. Runs once per browser; real player scores are always kept.
+  try {
+    if (!localStorage.getItem('hd_board_cleared')) {
+      const isSeed = (e) => LEGACY_SEED.some((s) => s.name === e.name && s.result === e.result);
+      leaderboard = leaderboard.filter((e) => !isSeed(e));
+      localStorage.setItem('hd_board_cleared', '1');
+      saveBoard();
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function saveBoard() {
@@ -635,6 +648,9 @@ function renderBoard() {
   const list = $('#boardList');
   if (list) {
     const sorted = [...leaderboard].sort((a, b) => b.result - a.result).slice(0, 20);
+    if (!sorted.length) {
+      list.innerHTML = '<li class="board-empty">Még senki sincs a toplistán — légy te az első! 🏆</li>';
+    } else
     list.innerHTML = sorted.map((e, i) => {
       const cls = e.result >= 0 ? 'pos' : 'neg';
       const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
