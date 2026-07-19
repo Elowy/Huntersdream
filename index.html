@@ -58,6 +58,8 @@
 </head>
 <body>
   <div class="cabinet">
+    <!-- LEFT column in landscape: the game stage (logo, reels, meters) -->
+    <div class="stage">
     <header class="topbar">
       <h1 class="logo">
         <span class="logo-adventure">ADVENTURE</span>
@@ -107,7 +109,10 @@
         <span class="meter-value" id="credit">0.00</span>
       </div>
     </section>
+    </div><!-- /.stage -->
 
+    <!-- RIGHT column in landscape: the controls panel -->
+    <div class="panel">
     <button class="gamble-btn hidden" id="gambleBtn" type="button">
       🂠 DUPLÁZÁS — <span id="gambleAmt">0.00</span> €
     </button>
@@ -145,6 +150,7 @@
     <footer class="footer">
       <span>Az összes érték EUR-ban · 5 tárcsa · 20 nyerővonal</span>
     </footer>
+    </div><!-- /.panel -->
   </div>
 
   <!-- Rules modal -->
@@ -161,6 +167,17 @@
           az RTP-t a <b>tárcsák</b> állítják: magasabb RTP-nél gyakrabban jelenik meg a
           <b>WILD</b> (🔥), így többször és nagyobbat állnak össze a nyeremények.
           <b>96%</b> = kaszinó-reális, <b>120%</b> = nagyon bőkezű.</p>
+      </div>
+
+      <div class="layout-control">
+        <label>Fekvő (elforgatott) elrendezés:</label>
+        <div class="layout-opts" id="layoutOpts">
+          <button class="layout-opt" data-layout="left" type="button">Játék balra ◧</button>
+          <button class="layout-opt" data-layout="right" type="button">Játék jobbra ◨</button>
+          <button class="layout-opt" data-layout="off" type="button">Ki (egymás alatt)</button>
+        </div>
+        <p class="rtp-note">Fektesd el a telefont: a <b>játék</b> az egyik oldalra, a <b>gombok</b>
+          a másikra kerülnek. Itt átfordíthatod az oldalakat, vagy kikapcsolhatod.</p>
       </div>
 
       <p>Adventure Spins egy 5 tárcsás játék 20 nyerővonallal. A nyeremények

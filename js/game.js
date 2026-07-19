@@ -1351,6 +1351,24 @@ function loadRtp() {
   return RTP_DEFAULT;
 }
 
+/* ------------------------- Landscape layout ----------------------------- */
+/* In phone landscape the game and the controls sit side by side. The choice
+ * (game left / game right / off) is a saved setting. */
+
+function applyLayout(v) {
+  const val = ['left', 'right', 'off'].includes(v) ? v : 'left';
+  document.body.classList.remove('ls-left', 'ls-right', 'ls-off');
+  document.body.classList.add('ls-' + val);
+  document.querySelectorAll('#layoutOpts .layout-opt').forEach((b) => b.classList.toggle('sel', b.dataset.layout === val));
+  try { localStorage.setItem('hd_layout', val); } catch (e) { /* ignore */ }
+  fxResize();   // the fx canvas may have changed size
+}
+
+function loadLayout() {
+  try { const v = localStorage.getItem('hd_layout'); if (['left', 'right', 'off'].includes(v)) return v; } catch (e) { /* ignore */ }
+  return 'left';
+}
+
 /* ------------------------------- Gamble --------------------------------- */
 /* Double-or-nothing on the last base-game win: guess the card colour. */
 
@@ -1580,6 +1598,12 @@ function init() {
   setRtp(loadRtp());
   $('#rtpSlider').addEventListener('input', (e) => setRtp(+e.target.value));
 
+  // Landscape layout setting (game left / right / off).
+  applyLayout(loadLayout());
+  document.querySelectorAll('#layoutOpts .layout-opt').forEach((b) => {
+    b.addEventListener('click', () => { SFX.resume(); applyLayout(b.dataset.layout); });
+  });
+
   // Sound mute toggle.
   const savedMute = (() => { try { return localStorage.getItem('hd_mute') === '1'; } catch (e) { return false; } })();
   SFX.setMuted(savedMute);
@@ -1656,4 +1680,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, getBoard: () => leaderboard };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard };
