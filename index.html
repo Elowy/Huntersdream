@@ -44,8 +44,9 @@
 
     <section class="meters">
       <div class="meter">
-        <span class="meter-label">TÉT</span>
+        <span class="meter-label">TÉT / VONAL</span>
         <span class="meter-value" id="betValue">0.10</span>
+        <span class="meter-sub">össztét <b id="totalBetValue">2.00</b> €</span>
       </div>
       <div class="meter win">
         <span class="meter-label">NYEREMÉNY</span>
@@ -130,10 +131,11 @@
             <b>több WILD</b> jelenik meg.</li>
         <li><b>DUPLÁZÁS:</b> nyeremény után (a <b>bónusznyeremény</b> is)
             kockáztathatsz — találd el a lap <b>színét</b> (piros/fekete) a
-            nyereményed <b>×2</b>-éért, vagy a pontos <b>szimbólumot</b> (♥ ♦ ♠ ♣)
-            <b>×4</b>-ért. Tévedésnél <b>elveszik</b>; bármikor <b>elviheted</b>. A
-            duplázó a korábban húzott lapokat is mutatja. Automata pörgetés alatt
-            nincs duplázás.</li>
+            nyereményed <b>×2</b>-éért, a pontos <b>szimbólumot</b> (♥ ♦ ♠ ♣)
+            <b>×4</b>-ért, vagy a pontos <b>lapot</b> (A–2) <b>×13</b>-ért — az
+            esélyekkel arányos szorzó. Tévedésnél <b>elveszik</b>; bármikor
+            <b>elviheted</b>. A duplázó a korábban húzott lapokat és az eddigi
+            <b>+/- mérleget</b> is mutatja. Automata pörgetés alatt nincs duplázás.</li>
       </ul>
       <div id="paytableWrap" class="paytable"></div>
     </div>
@@ -146,11 +148,13 @@
       <div class="gamble-amounts">
         <div class="ga-col"><span class="ga-label">TÉT</span><b id="gStake">0.00</b> €</div>
         <div class="ga-col"><span class="ga-label">SZÍN ×2</span><b id="gWin2">0.00</b> €</div>
-        <div class="ga-col"><span class="ga-label">SZIMBÓLUM ×4</span><b id="gWin4">0.00</b> €</div>
+        <div class="ga-col"><span class="ga-label">SZIMB. ×4</span><b id="gWin4">0.00</b> €</div>
+        <div class="ga-col"><span class="ga-label">LAP ×13</span><b id="gWin13">0.00</b> €</div>
       </div>
+      <div class="gamble-stat">Duplázás mérleg: <b id="gNet" class="pos">+0.00 €</b></div>
       <div class="gamble-history" id="gHistory"></div>
       <div class="gamble-card" id="gCard"><span>?</span></div>
-      <div class="gamble-msg" id="gMsg">Tippelj: szín ×2 vagy szimbólum ×4</div>
+      <div class="gamble-msg" id="gMsg">Tippelj: szín ×2, szimbólum ×4 vagy lap ×13</div>
       <div class="gamble-choices">
         <button id="gRed" class="g-choice g-red" type="button">PIROS ♥ ♦ <small>×2</small></button>
         <button id="gBlack" class="g-choice g-black" type="button">FEKETE ♠ ♣ <small>×2</small></button>
@@ -161,6 +165,22 @@
         <button class="g-suit red" data-suit="♦" type="button">♦</button>
         <button class="g-suit black" data-suit="♠" type="button">♠</button>
         <button class="g-suit black" data-suit="♣" type="button">♣</button>
+      </div>
+      <div class="gamble-suits-label">Lap tipp — ×13</div>
+      <div class="gamble-ranks">
+        <button class="g-rank" data-rank="A" type="button">A</button>
+        <button class="g-rank" data-rank="K" type="button">K</button>
+        <button class="g-rank" data-rank="Q" type="button">Q</button>
+        <button class="g-rank" data-rank="J" type="button">J</button>
+        <button class="g-rank" data-rank="10" type="button">10</button>
+        <button class="g-rank" data-rank="9" type="button">9</button>
+        <button class="g-rank" data-rank="8" type="button">8</button>
+        <button class="g-rank" data-rank="7" type="button">7</button>
+        <button class="g-rank" data-rank="6" type="button">6</button>
+        <button class="g-rank" data-rank="5" type="button">5</button>
+        <button class="g-rank" data-rank="4" type="button">4</button>
+        <button class="g-rank" data-rank="3" type="button">3</button>
+        <button class="g-rank" data-rank="2" type="button">2</button>
       </div>
       <button id="gCollect" class="g-collect" type="button">ELVISZ</button>
     </div>

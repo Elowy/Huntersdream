@@ -109,7 +109,7 @@ const BET_STEPS = [0.10, 0.30, 0.50, 0.70, 1.00, 2.00, 3.00, 4.00,
   5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
   25.00, 50.00, 75.00, 100.00, 150.00, 200.00, 1000.00];
 const LINES = PAYLINES.length; // 20
-const START_CREDIT = 10.00;
+const START_CREDIT = 100.00;   // ~50 spins at the 0.10 line bet (2.00 total)
 const MAX_STICKY_RESPINS = 6;
 const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 
@@ -123,10 +123,10 @@ const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent (base slider)
 const BONUS_RTP = 150;   // scatter free games are more generous than the base game
 const WILD_TABLE = [
-  77, 77, 78, 79, 79, 80, 81, 81, 82, 83, 84, 84, 85, 86, 86, 87, 88, 88, 89, 89,   // 80-99%
-  90, 91, 91, 92, 93, 93, 94, 95, 95, 96, 96, 97, 97, 98, 99, 99, 100, 100, 101, 102, // 100-119%
-  102, 103, 103, 104, 104, 105, 105, 106, 107, 108, 108, 108, 109, 109, 110, 110, 111, 111, 112, 112, // 120-139%
-  113, 114, 114, 115, 116, 116, 116, 117, 117, 118, 119,   // 140-150% (BONUS_RTP lookup)
+  82, 82, 83, 84, 85, 85, 86, 87, 88, 88, 89, 90, 91, 92, 92, 93, 94, 95, 95, 96,   // 80-99%
+  97, 98, 98, 99, 100, 101, 101, 102, 103, 103, 104, 105, 105, 106, 107, 108, 108, 109, 110, 111, // 100-119%
+  111, 112, 112, 113, 114, 114, 115, 116, 116, 117, 118, 118, 119, 120, 120, 121, 122, 122, 123, 123, // 120-139%
+  124, 125, 125, 126, 127, 127, 128, 129, 129, 130, 130,   // 140-150% (BONUS_RTP lookup)
 ];
 let activeWild = null;   // wild weight snapshot for the current spin
 function wildWeightFor(rtp) {
@@ -162,12 +162,13 @@ const state = {
   lastWin: 0,
   bonusWin: 0,            // running total accumulated during the current bonus session
   gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
+  gambleNet: 0,           // cumulative gamble result so far (won minus lost)
   rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
   deposited: START_CREDIT,// total credits ever put in (initial + top-ups)
   deposits: [],           // log of deposit amounts, for the history panel
 };
 
-const TOPUP_AMOUNT = 10;       // credit added by the top-up button
+const TOPUP_AMOUNT = 50;       // credit added by the top-up button
 const BUY_BONUS_COST = 50;     // free-spin bonus buy costs 50x total bet
 const SFX = window.SFX || { play() {}, toggleMute() { return false; }, setMuted() {}, get muted() { return false; }, resume() {} };
 
@@ -178,8 +179,12 @@ const GAMBLE_MAX_WIN = 5000;   // and on the amount
 
 const $ = (sel) => document.querySelector(sel);
 const fmt = (n) => n.toFixed(2);
-const totalBet = () => BET_STEPS[state.betIndex];
-const lineBet = () => totalBet() / LINES;
+/* The displayed TÉT is the PER-LINE stake (like a real 20-line machine): the
+ * paytable pays pay × lineBet, so the numbers are meaningful, and the actual
+ * amount staked per spin is lineBet × 20. RTP is unchanged (win and stake both
+ * scale by 20), so the WILD_TABLE calibration stays valid. */
+const lineBet = () => BET_STEPS[state.betIndex];
+const totalBet = () => round2(lineBet() * LINES);
 
 function reelSymbols(col) {
   // Build the pool of symbols allowed on this reel.
@@ -350,8 +355,9 @@ function evaluateLine(line) {
 
   // Win = paytable × line bet × wild multiplier (like the original 20-line
   // machine). The paytable pays exactly its listed value; RTP is balanced on
-  // the reels (WILD frequency), never by scaling the wins.
-  const multiplier = Math.pow(2, wilds);
+  // the reels (WILD frequency), never by scaling the wins. Each WILD on the
+  // line adds ×2 LINEARLY: 1→×2, 2→×4, 3→×6, 4→×8.
+  const multiplier = wilds > 0 ? 2 * wilds : 1;
   const win = round2(pay * lineBet() * multiplier);
 
   return { symbol: base, count, wilds, multiplier, win };
@@ -519,7 +525,9 @@ function hideWinPopup() { $('#winPopup').classList.add('hidden'); }
 
 function updateMeters() {
   $('#credit').textContent = fmt(state.credit);
-  $('#betValue').textContent = fmt(totalBet());
+  $('#betValue').textContent = fmt(lineBet());
+  const tb = $('#totalBetValue');
+  if (tb) tb.textContent = fmt(totalBet());
   $('#win').textContent = fmt(state.lastWin);
   const gold = state.inGoldGame;
   const banner = state.inFreeGame || gold;
@@ -568,6 +576,7 @@ function saveGame() {
     localStorage.setItem('hd_save', JSON.stringify({
       credit: state.credit, betIndex: state.betIndex,
       deposited: state.deposited, deposits: state.deposits.slice(-40),
+      gambleNet: state.gambleNet,
     }));
   } catch (e) { /* ignore */ }
 }
@@ -584,6 +593,7 @@ function loadGame() {
       if (Array.isArray(s.deposits)) {
         state.deposits = s.deposits.filter((d) => d && typeof d.amount === 'number').slice(-40);
       }
+      if (typeof s.gambleNet === 'number') state.gambleNet = round2(s.gambleNet);
     }
   } catch (e) { /* ignore */ }
 }
@@ -1199,7 +1209,7 @@ function openGamble() {
   const card = $('#gCard');
   card.className = 'gamble-card';
   card.innerHTML = '<span>?</span>';
-  $('#gMsg').textContent = 'Tippelj: szín ×2 vagy szimbólum ×4';
+  $('#gMsg').textContent = 'Tippelj: szín ×2, szimbólum ×4 vagy lap ×13';
   $('#gMsg').className = 'gamble-msg';
   setGambleChoicesEnabled(true);
   $('#gambleModal').classList.remove('hidden');
@@ -1207,15 +1217,23 @@ function openGamble() {
 
 function updateGambleUI() {
   $('#gStake').textContent = fmt(state.gambleAmount);
-  const w2 = $('#gWin2'), w4 = $('#gWin4');
+  const w2 = $('#gWin2'), w4 = $('#gWin4'), w13 = $('#gWin13');
   if (w2) w2.textContent = fmt(round2(state.gambleAmount * 2));
   if (w4) w4.textContent = fmt(round2(state.gambleAmount * 4));
+  if (w13) w13.textContent = fmt(round2(state.gambleAmount * 13));
+  const net = $('#gNet');
+  if (net) {
+    const v = round2(state.gambleNet);
+    net.textContent = (v >= 0 ? '+' : '−') + fmt(Math.abs(v)) + ' €';
+    net.classList.toggle('pos', v >= 0);
+    net.classList.toggle('neg', v < 0);
+  }
 }
 
 function setGambleChoicesEnabled(on) {
   $('#gRed').disabled = !on;
   $('#gBlack').disabled = !on;
-  document.querySelectorAll('#gambleModal .g-suit').forEach((b) => { b.disabled = !on; });
+  document.querySelectorAll('#gambleModal .g-suit, #gambleModal .g-rank').forEach((b) => { b.disabled = !on; });
   $('#gCollect').disabled = !on;
 }
 
@@ -1229,8 +1247,10 @@ function renderGambleHistory() {
     .join('');
 }
 
-/* Resolve one gamble. `choice` is { mult, test }: colour guesses pay ×2 and
- * match on red/black; exact-suit guesses pay ×4 and match the suit symbol. */
+/* Resolve one gamble. `choice` is { mult, test, label }: colour guesses pay ×2
+ * (match red/black), exact-suit guesses pay ×4 (match the suit), and exact-rank
+ * guesses pay ×13 (match the card rank) — each multiplier is proportional to
+ * its odds. test receives (suit, rank). Cumulative +/- is tracked in gambleNet. */
 async function gambleGuess(choice) {
   if (gambleBusy || state.gambleAmount <= 0) return;
   gambleBusy = true;
@@ -1251,11 +1271,13 @@ async function gambleGuess(choice) {
   if (gambleHistory.length > 8) gambleHistory.pop();
   renderGambleHistory();
 
-  if (choice.test(suit)) {
-    const gain = round2(state.gambleAmount * (choice.mult - 1));
+  const staked = state.gambleAmount;
+  if (choice.test(suit, rank)) {
+    const gain = round2(staked * (choice.mult - 1));
     state.credit = round2(state.credit + gain);            // top up to the multiplied amount
-    state.gambleAmount = round2(state.gambleAmount * choice.mult);
+    state.gambleAmount = round2(staked * choice.mult);
     state.lastWin = state.gambleAmount;
+    state.gambleNet = round2(state.gambleNet + gain);      // +/- statistics
     gambleRounds++;
     updateGambleUI();
     updateMeters();
@@ -1274,9 +1296,11 @@ async function gambleGuess(choice) {
       gambleBusy = false;
     }
   } else {
-    state.credit = round2(state.credit - state.gambleAmount);   // lose the staked win
+    state.credit = round2(state.credit - staked);          // lose the staked win
     state.gambleAmount = 0;
     state.lastWin = 0;
+    state.gambleNet = round2(state.gambleNet - staked);    // +/- statistics
+    updateGambleUI();
     updateMeters();
     saveGame();
     SFX.play('gambleLose');
@@ -1398,6 +1422,9 @@ function init() {
   $('#gBlack').addEventListener('click', () => gambleGuess({ mult: 2, test: (s) => s.red === false }));
   document.querySelectorAll('#gambleModal .g-suit').forEach((b) => {
     b.addEventListener('click', () => gambleGuess({ mult: 4, test: (s) => s.s === b.dataset.suit }));
+  });
+  document.querySelectorAll('#gambleModal .g-rank').forEach((b) => {
+    b.addEventListener('click', () => gambleGuess({ mult: 13, test: (s, r) => r === b.dataset.rank }));
   });
   $('#gCollect').addEventListener('click', () => { if (!gambleBusy) gambleCollect(); });
   $('#gambleModal').addEventListener('click', (e) => {

@@ -91,13 +91,9 @@
     </radialGradient>
   </defs>
   <g class="gem">
-    <circle cx="50" cy="50" r="42" fill="url(#wcd_${id})"/>
     ${T('none', '#2e1c06', 14)}
     ${T('url(#wcw_' + id + ')', 'url(#wcg_' + id + ')', 8)}
     ${T('url(#wcw_' + id + ')', '', 0)}
-    <g opacity=".9">
-      ${rivet(34, 30)}${rivet(66, 30)}${rivet(30, 66)}${rivet(70, 66)}${rivet(50, 22)}${rivet(50, 80)}
-    </g>
   </g>
 </svg>`;
   }
@@ -157,10 +153,6 @@
       <stop offset="0" stop-color="#33456a"/><stop offset="55%" stop-color="#1a2740"/><stop offset="100%" stop-color="#0c1424"/>
     </radialGradient>
   </defs>
-  <circle cx="50" cy="48" r="46" fill="url(#skyG)"/>
-  <circle cx="73" cy="24" r="8" fill="#f6f2da"/>
-  <circle cx="73" cy="24" r="8" fill="#0c1424" opacity=".08"/>
-  <g fill="#fff" opacity=".8"><circle cx="30" cy="20" r="1"/><circle cx="42" cy="14" r=".8"/><circle cx="60" cy="16" r=".9"/><circle cx="22" cy="32" r=".7"/><circle cx="82" cy="40" r=".8"/></g>
   <g class="breathe">
     <rect x="26" y="48" width="48" height="37" rx="2" fill="url(#wallG)"/>
     <line x1="26" y1="57" x2="74" y2="57" stroke="#3a2410" stroke-width="1.6"/>
@@ -204,7 +196,6 @@
       <stop offset="0" stop-color="#6d4c2b"/><stop offset="1" stop-color="#432c16"/>
     </linearGradient>
   </defs>
-  <circle cx="50" cy="50" r="44" fill="url(#hDisc)"/>
   <g class="breathe" filter="url(#hSh)">
     <g transform="rotate(-27 50 52)">
       <rect x="15" y="29" width="68" height="5.5" rx="2.5" fill="#20160d"/>
@@ -268,8 +259,6 @@
     </radialGradient>
     ${softShadow('wSh')}
   </defs>
-  <circle cx="50" cy="45" r="45" fill="url(#wMoon)"/>
-  <circle cx="50" cy="38" r="21" fill="#eef4fb" opacity=".5"/>
   <g class="breathe" filter="url(#wSh)">
     <path d="M27 45 L20 8 L47 33 Z" fill="url(#wolfG)" stroke="#28374c" stroke-width="2.2" stroke-linejoin="round"/>
     <path d="M73 45 L80 8 L53 33 Z" fill="url(#wolfG)" stroke="#28374c" stroke-width="2.2" stroke-linejoin="round"/>
@@ -324,11 +313,6 @@
       <stop offset="0" stop-color="#efe6cc"/><stop offset="1" stop-color="#b8a678"/>
     </linearGradient>
   </defs>
-  <ellipse cx="50" cy="74" rx="43" ry="17" fill="url(#bfGrass)"/>
-  <g fill="#2f6a28" opacity=".7">
-    <path d="M18 72 l3 -7 3 7 Z"/><path d="M78 72 l3 -7 3 7 Z"/>
-    <path d="M64 78 q3 -6 6 0 Z"/><path d="M28 79 q3 -6 6 0 Z"/>
-  </g>
   <g class="breathe" filter="url(#bfSh)">
     <!-- far legs -->
     <rect x="42" y="63" width="5.5" height="15" rx="1.6" fill="#2a1c10"/>
@@ -386,10 +370,6 @@
       <stop offset="0" stop-color="#ffd23b"/><stop offset="1" stop-color="#d67e10"/>
     </linearGradient>
   </defs>
-  <circle cx="50" cy="50" r="45" fill="url(#eSky)"/>
-  <g fill="#ffffff" opacity=".75">
-    <ellipse cx="24" cy="66" rx="12" ry="4"/><ellipse cx="74" cy="70" rx="14" ry="4.5"/><ellipse cx="70" cy="30" rx="9" ry="3"/>
-  </g>
   <g class="float" filter="url(#eaSh)">
     <!-- LEFT wing (spread, feathered tips) -->
     <path d="M49 50 C40 42 28 33 15 30 C9 29 6 33 10 37 C17 41 24 45 29 51
