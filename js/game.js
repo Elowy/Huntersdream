@@ -163,9 +163,11 @@ const state = {
   autoStopBonus: true,    // stop autoplay when a bonus triggers
   autoStopBig: false,     // stop autoplay on a big win
   lastWin: 0,
+  turbo: false,           // lightning mode: fast spins, win counted in one go
   bonusWin: 0,            // running total accumulated during the current bonus session
   gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
   gambleNet: 0,           // cumulative gamble result so far (won minus lost)
+  gambleHistory: [],      // last 10 drawn cards (kept across sessions + reloads)
   rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
   deposited: START_CREDIT,// total credits ever put in (initial + top-ups)
   withdrawn: 0,           // total credits ever taken out (cashed out)
@@ -481,6 +483,26 @@ async function presentWins(result, { fast, bonus } = {}) {
   const wins = [...result.lineWins].sort((a, b) => b.win - a.win);
   if (!wins.length) return 0;
 
+  // Lightning mode: count the whole win in one go — no per-line presentation.
+  if (state.turbo) {
+    const roundWin = wins.reduce((s, lw) => round2(s + lw.win), 0);
+    if (bonus) {
+      state.bonusWin = round2(state.bonusWin + roundWin);
+      state.lastWin = state.bonusWin;
+    } else {
+      state.lastWin = roundWin;
+      state.credit = round2(state.credit + roundWin);
+    }
+    clearWinVisuals();
+    showWinLines(result);
+    updateMeters();
+    SFX.play('win');
+    const goldTag = result.goldMultiplier > 1 ? `🪙×${result.goldMultiplier}  ` : '';
+    showWinPopup(`${goldTag}${bonus ? 'BÓNUSZ  ' : ''}${fmt(bonus ? state.bonusWin : roundWin)} €`);
+    await sleep(320);
+    return roundWin;
+  }
+
   const per = fast ? 600 : 900;
   if (!bonus) { state.lastWin = 0; updateMeters(); }
 
@@ -586,6 +608,7 @@ function saveGame() {
       credit: state.credit, betIndex: state.betIndex,
       deposited: state.deposited, withdrawn: state.withdrawn,
       deposits: state.deposits.slice(-40), gambleNet: state.gambleNet,
+      gambleHistory: state.gambleHistory.slice(0, 10),
     }));
   } catch (e) { /* ignore */ }
 }
@@ -604,6 +627,11 @@ function loadGame() {
         state.deposits = s.deposits.filter((d) => d && typeof d.amount === 'number').slice(-40);
       }
       if (typeof s.gambleNet === 'number') state.gambleNet = round2(s.gambleNet);
+      if (Array.isArray(s.gambleHistory)) {
+        state.gambleHistory = s.gambleHistory
+          .filter((c) => c && typeof c.rank === 'string' && typeof c.s === 'string')
+          .slice(0, 10);
+      }
     }
   } catch (e) { /* ignore */ }
 }
@@ -710,7 +738,7 @@ function scheduleNext() {
         && state.autoRemaining > 0 && state.credit >= totalBet()) {
       doSpin();
     }
-  }, 500);
+  }, state.turbo ? 120 : 500);
 }
 
 /* ------------------------------ Win juice ------------------------------- */
@@ -818,7 +846,8 @@ function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
 
 async function animateSpin(holdSet) {
   // holdSet: Set of 'c,r' positions to keep sticky (free game respins)
-  const spinFrames = 12;
+  const turbo = state.turbo;
+  const spinFrames = turbo ? 3 : 12;
   for (let c = 0; c < COLS; c++) {
     for (let r = 0; r < ROWS; r++) {
       if (holdSet && holdSet.has(c + ',' + r)) continue;
@@ -833,14 +862,14 @@ async function animateSpin(holdSet) {
         cellEls[c][r].querySelector('.sym').innerHTML = artFor(randomSymbol(c));
       }
     }
-    await sleep(45);
+    await sleep(turbo ? 16 : 45);
   }
 
   // Stop each reel with a short stagger and a landing bounce.
   for (let c = 0; c < COLS; c++) {
     // Scatter anticipation: if reels 1 & 2 already show 2 scatters, the last
-    // scatter reel (3) teases a slower, highlighted stop.
-    if (c === 3) {
+    // scatter reel (3) teases a slower, highlighted stop. (Skipped in turbo.)
+    if (c === 3 && !turbo) {
       let sc = 0;
       for (const mc of [1, 2]) for (let r = 0; r < ROWS; r++) if (state.grid[mc][r] === 'scatter') sc++;
       if (sc === 2) {
@@ -868,7 +897,7 @@ async function animateSpin(holdSet) {
       cell.classList.add('land');
     }
     SFX.play('reelStop');
-    await sleep(150); // stagger reel stop
+    await sleep(turbo ? 30 : 150); // stagger reel stop
   }
 
   // Gold multipliers are revealed later, only if the spin actually wins (#8).
@@ -893,7 +922,8 @@ async function revealGoldMultipliers() {
       if (state.grid[c][r] === 'gold') cells.push([c, r]);
   if (!cells.length) return;
   const vals = ['1', '1.5', '2'];
-  for (let f = 0; f < 9; f++) {
+  const rolls = state.turbo ? 0 : 9;   // no rolling animation in lightning mode
+  for (let f = 0; f < rolls; f++) {
     for (const [c, r] of cells) goldBadge(c, r).textContent = vals[Math.floor(Math.random() * vals.length)] + '×';
     SFX.play('goldRoll');
     await sleep(75);
@@ -984,15 +1014,15 @@ async function doSpin() {
 
   // Continue free game / gold bonus / autoplay chains.
   if (state.inFreeGame && state.freeSpins > 0) {
-    await sleep(700); doSpin();
+    await sleep(state.turbo ? 160 : 700); doSpin();
   } else if (state.inFreeGame) {
     endFreeGame();
-    await sleep(500); scheduleNext();
+    await sleep(state.turbo ? 200 : 500); scheduleNext();
   } else if (state.inGoldGame && state.goldSpins > 0) {
-    await sleep(650); doSpin();
+    await sleep(state.turbo ? 160 : 650); doSpin();
   } else if (state.inGoldGame) {
     endGoldGame();
-    await sleep(500); scheduleNext();
+    await sleep(state.turbo ? 200 : 500); scheduleNext();
   } else {
     scheduleNext();
   }
@@ -1114,7 +1144,7 @@ async function freeSpinRound() {
   let bestWin = result.totalWin;
   let bestGrid = cloneGrid();
   showWinLines(result);
-  await sleep(800);
+  await sleep(state.turbo ? 200 : 800);
 
   // Gold sticks during the scatter free game (keeps its multiplier).
   let held = new Set([...result.positions, ...result.goldPositions]);
@@ -1127,7 +1157,7 @@ async function freeSpinRound() {
       const [c, r] = p.split(',').map(Number);
       cellEls[c][r].classList.add('sticky');
     });
-    await sleep(500);
+    await sleep(state.turbo ? 150 : 500);
 
     await animateSpin(held);
     const next = evaluateGrid();
@@ -1141,7 +1171,7 @@ async function freeSpinRound() {
       // grow the held set with the new winning positions
       next.positions.forEach((p) => held.add(p));
       respins++;
-      await sleep(800);
+      await sleep(state.turbo ? 200 : 800);
     } else {
       // no higher win -> stop respinning
       break;
@@ -1209,8 +1239,7 @@ function loadRtp() {
 /* Double-or-nothing on the last base-game win: guess the card colour. */
 
 let gambleRounds = 0;
-let gambleBusy = false;
-let gambleHistory = [];   // cards drawn this gamble session (for the ladder)
+let gambleBusy = false;   // gamble history persists in state.gambleHistory (last 10)
 
 const CARD_RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const CARD_SUITS = [
@@ -1235,8 +1264,7 @@ function openGamble() {
   if (state.gambleAmount <= 0 || state.spinning || state.inFreeGame || state.inGoldGame) return;
   gambleRounds = 0;
   gambleBusy = false;
-  gambleHistory = [];
-  renderGambleHistory();
+  renderGambleHistory();   // keep the previous cards; the last 10 stay visible
   updateGambleUI();
   const card = $('#gCard');
   card.className = 'gamble-card';
@@ -1273,8 +1301,8 @@ function setGambleChoicesEnabled(on) {
 function renderGambleHistory() {
   const wrap = $('#gHistory');
   if (!wrap) return;
-  if (!gambleHistory.length) { wrap.innerHTML = '<span class="gh-empty">Előzmények</span>'; return; }
-  wrap.innerHTML = gambleHistory
+  if (!state.gambleHistory.length) { wrap.innerHTML = '<span class="gh-empty">Előzmények</span>'; return; }
+  wrap.innerHTML = state.gambleHistory
     .map((c) => `<span class="gh-card ${c.red ? 'red' : 'black'}">${c.rank}<i>${c.s}</i></span>`)
     .join('');
 }
@@ -1298,10 +1326,11 @@ async function gambleGuess(choice) {
   card.innerHTML = `<span class="${suit.red ? 'red' : 'black'}">${rank} ${suit.s}</span>`;
   card.className = 'gamble-card ' + (suit.red ? 'is-red' : 'is-black');
 
-  // Record the draw in the history ladder (most recent first).
-  gambleHistory.unshift({ rank, s: suit.s, red: suit.red });
-  if (gambleHistory.length > 8) gambleHistory.pop();
+  // Record the draw in the history ladder (most recent first, keep last 10).
+  state.gambleHistory.unshift({ rank, s: suit.s, red: suit.red });
+  if (state.gambleHistory.length > 10) state.gambleHistory.pop();
   renderGambleHistory();
+  saveGame();
 
   const staked = state.gambleAmount;
   if (choice.test(suit, rank)) {
@@ -1423,6 +1452,16 @@ function init() {
     const m = SFX.toggleMute();
     $('#muteBtn').textContent = m ? '🔇' : '🔊';
     try { localStorage.setItem('hd_mute', m ? '1' : '0'); } catch (e) { /* ignore */ }
+  });
+
+  // Lightning (turbo) mode: fast spins, win counted in one go.
+  state.turbo = (() => { try { return localStorage.getItem('hd_turbo') === '1'; } catch (e) { return false; } })();
+  $('#turboBtn').classList.toggle('active', state.turbo);
+  $('#turboBtn').addEventListener('click', () => {
+    state.turbo = !state.turbo;
+    $('#turboBtn').classList.toggle('active', state.turbo);
+    SFX.play('click');
+    try { localStorage.setItem('hd_turbo', state.turbo ? '1' : '0'); } catch (e) { /* ignore */ }
   });
 
   // Top-up and bonus buy.
