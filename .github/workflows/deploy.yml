@@ -1,0 +1,32 @@
+name: Deploy via FTP
+
+# Minden main-re pusholásnál (pl. PR merge után) automatikusan feltölti a
+# statikus oldalt a tárhelyre FTP-vel. Kézzel is indítható (workflow_dispatch).
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: FTP feltöltés
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:   ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ./          # FTP-belépés utáni gyökérmappa
+          protocol: ftps          # ha a tárhely nem tud FTPS-t: írd át 'ftp'-re
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            node_modules/**
+            README.md
+            .gitignore
+            images/README.md
