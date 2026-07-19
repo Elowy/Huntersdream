@@ -644,7 +644,9 @@ function updateHistoryPanel() {
 }
 
 function setControlsEnabled(enabled) {
-  const busy = !enabled || state.inFreeGame || state.inGoldGame;
+  // Keep the side controls disabled throughout autoplay / bonuses so they don't
+  // flicker enabled→disabled in the short gap between consecutive spins.
+  const busy = !enabled || state.inFreeGame || state.inGoldGame || state.auto;
   ['#betMinus', '#betPlus', '#maxBet'].forEach((s) => { $(s).disabled = busy; });
   ['#buyBonusBtn', '#topupBtn', '#withdrawBtn', '#restartBtn'].forEach((s) => { const el = $(s); if (el) el.disabled = busy; });
 }
@@ -1112,6 +1114,13 @@ function stopAutoplay() {
   state.autoRemaining = 0;
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
   $('#autoBtn').classList.remove('active');
+  // If autoplay is stopped between spins (nothing in flight), re-enable the
+  // controls now — otherwise they'd stay disabled until the next manual spin.
+  if (!state.spinning && !state.inFreeGame && !state.inGoldGame) {
+    setControlsEnabled(true);
+    $('#startBtn').textContent = 'START';
+    $('#startBtn').classList.remove('stop');
+  }
 }
 
 /* Decide whether another autoplay spin should run, and schedule it. */
@@ -1404,8 +1413,11 @@ async function doSpin() {
   } finally {
     activeWild = null;
     state.spinning = false;
-    $('#startBtn').textContent = 'START';
-    $('#startBtn').classList.remove('stop');
+    // While autoplay is still running, keep the button showing STOP instead of
+    // flashing back to START between spins.
+    const stillAuto = state.auto;
+    $('#startBtn').textContent = stillAuto ? 'STOP' : 'START';
+    $('#startBtn').classList.toggle('stop', stillAuto);
     setControlsEnabled(true);
     updateMeters();
     saveGame();
@@ -2005,4 +2017,5 @@ document.addEventListener('DOMContentLoaded', init);
  * and drive the game state. Harmless in normal play. */
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
-  MISSIONS, COMBO_MULT, comboMultFor, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateComboMeter, updateLevelBar, updateJackpot };
+  MISSIONS, COMBO_MULT, comboMultFor, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateComboMeter, updateLevelBar, updateJackpot,
+  setControlsEnabled, stopAutoplay };
