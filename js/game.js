@@ -22,35 +22,36 @@ const ROWS = 3;
  */
 const SYMBOLS = {
   // Premium symbols: the hunter and the wolf lead the paytable and pay
-  // already from TWO of a kind.
-  hunter:  { emoji: '🏹', name: 'HUNTER',  kind: 'high', weight: 3,
+  // already from TWO of a kind. (Reel weights are on a x10 scale for fine
+  // RTP control; wins pay per line.)
+  hunter:  { emoji: '🏹', name: 'HUNTER',  kind: 'high', weight: 30,
              pay: { 2: 20, 3: 40, 4: 60, 5: 200 } },
-  wolf:    { emoji: '🐺', name: 'WOLF',    kind: 'high', weight: 4,
+  wolf:    { emoji: '🐺', name: 'WOLF',    kind: 'high', weight: 40,
              pay: { 2: 8, 3: 16, 4: 32, 5: 80 } },
   // Buffalo replaces the old bear + boar pair.
-  buffalo: { emoji: '🦬', name: 'BUFFALO', kind: 'high', weight: 6,
+  buffalo: { emoji: '🦬', name: 'BUFFALO', kind: 'high', weight: 60,
              pay: { 3: 8, 4: 16, 5: 32 } },
-  eagle:   { emoji: '🦅', name: 'EAGLE',   kind: 'high', weight: 6,
+  eagle:   { emoji: '🦅', name: 'EAGLE',   kind: 'high', weight: 60,
              pay: { 3: 4, 4: 8, 5: 24 } },
-  ace:     { emoji: 'A',  name: 'A',       kind: 'card', weight: 8,
+  ace:     { emoji: 'A',  name: 'A',       kind: 'card', weight: 80,
              pay: { 3: 2, 4: 6, 5: 16 } },
-  king:    { emoji: 'K',  name: 'K',       kind: 'card', weight: 8,
+  king:    { emoji: 'K',  name: 'K',       kind: 'card', weight: 80,
              pay: { 3: 2, 4: 6, 5: 16 } },
-  queen:   { emoji: 'Q',  name: 'Q',       kind: 'card', weight: 9,
+  queen:   { emoji: 'Q',  name: 'Q',       kind: 'card', weight: 90,
              pay: { 3: 1, 4: 4, 5: 8 } },
-  jack:    { emoji: 'J',  name: 'J',       kind: 'card', weight: 9,
+  jack:    { emoji: 'J',  name: 'J',       kind: 'card', weight: 90,
              pay: { 3: 1, 4: 4, 5: 8 } },
-  ten:     { emoji: '10', name: '10',      kind: 'card', weight: 10,
+  ten:     { emoji: '10', name: '10',      kind: 'card', weight: 100,
              pay: { 3: 1, 4: 2, 5: 4 } },
-  nine:    { emoji: '9',  name: '9',       kind: 'card', weight: 10,
+  nine:    { emoji: '9',  name: '9',       kind: 'card', weight: 100,
              pay: { 3: 1, 4: 2, 5: 4 } },
-  // WILD is the fire — substitutes for all but the scatter and doubles per wild.
-  // Uncapped per reel, so it can land 3 stacked in one column.
-  wild:    { emoji: '🔥', name: 'WILD',    kind: 'wild', weight: 3, pay: {} },
-  scatter: { emoji: '🏚️', name: 'BONUS',   kind: 'scatter', weight: 2, pay: {} },
+  // WILD is the fire — substitutes for all but the scatter and doubles per
+  // wild. Its weight is the RTP lever, applied dynamically in reelSymbols.
+  wild:    { emoji: '🔥', name: 'WILD',    kind: 'wild', weight: 0, pay: {} },
+  scatter: { emoji: '🏚️', name: 'BONUS',   kind: 'scatter', weight: 20, pay: {} },
   // GOLD appears only on the first and last reel; it carries a 1-9x win
   // multiplier and 3+ on the board trigger the wild bonus spins.
-  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 4, pay: {} },
+  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 40, pay: {} },
 };
 
 /* Which reels each symbol may appear on (0-indexed). Scatter only on the
@@ -112,12 +113,22 @@ const START_CREDIT = 10.00;
 const MAX_STICKY_RESPINS = 6;
 const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 
-/* Payout balance (RTP). The paytable's natural return at scale 1.0 was
- * measured (~581%), so every win is scaled to hit the chosen target RTP.
- * Adjustable with a slider from 80% up to 120%. */
-const BASE_RTP = 5.81;
+/* Payout balance (RTP). Wins pay exactly the paytable per line (like the
+ * original machine); the return is controlled on the REELS by how often the
+ * WILD symbol appears — a real, paying-helper symbol, not a filler. More
+ * wild => more (and bigger) wins => higher RTP. WILD_TABLE[rtp-80] is the
+ * wild weight (on the x10 reel scale) measured by Monte Carlo per target. */
 const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent
-function winScale() { return (state.rtp / 100) / BASE_RTP; }
+const WILD_TABLE = [
+  77, 77, 78, 79, 79, 80, 81, 81, 82, 83, 84, 84, 85, 86, 86, 87, 88, 88, 89, 89,
+  90, 91, 91, 92, 93, 93, 94, 95, 95, 96, 96, 97, 97, 98, 99, 99, 100, 100, 101, 102, 102,
+];
+let activeWild = null;   // wild weight snapshot for the current spin
+function wildWeightFor(rtp) {
+  const i = Math.max(0, Math.min(WILD_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
+  return WILD_TABLE[i];
+}
+function wildWeight() { return activeWild != null ? activeWild : wildWeightFor(state.rtp); }
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -158,12 +169,17 @@ function reelSymbols(col) {
   // Build the pool of symbols allowed on this reel.
   const pool = [];
   for (const [id, def] of Object.entries(SYMBOLS)) {
+    if (def.kind === 'wild') continue; // wild is added below with the dynamic RTP weight
     if (def.kind === 'scatter' && !MIDDLE_REELS.includes(col)) continue;
     if (def.kind === 'gold' && !GOLD_REELS.includes(col)) continue; // gold: ends only
-    if (def.kind === 'wild' && col === 0) continue; // no wild on first reel
-    let w = def.weight;
-    if (def.kind === 'wild' && state.inGoldGame) w *= 4; // more wilds in gold bonus
-    for (let i = 0; i < w; i++) pool.push(id);
+    for (let i = 0; i < def.weight; i++) pool.push(id);
+  }
+  // WILD frequency is the RTP lever — a real, paying-helper symbol, not a
+  // filler. Not on the first reel; boosted during the gold bonus spins.
+  if (col !== 0) {
+    let ww = wildWeight();
+    if (state.inGoldGame) ww *= 4;
+    for (let i = 0; i < ww; i++) pool.push('wild');
   }
   return pool;
 }
@@ -319,10 +335,11 @@ function evaluateLine(line) {
   const pay = SYMBOLS[base].pay[count];
   if (!pay) return null;
 
-  // Win = paytable × total bet × wild multiplier, then scaled by the RTP
-  // setting so the game balances to the chosen return.
+  // Win = paytable × line bet × wild multiplier (like the original 20-line
+  // machine). The paytable pays exactly its listed value; RTP is balanced on
+  // the reels (WILD frequency), never by scaling the wins.
   const multiplier = Math.pow(2, wilds);
-  const win = round2(pay * totalBet() * multiplier * winScale());
+  const win = round2(pay * lineBet() * multiplier);
 
   return { symbol: base, count, wilds, multiplier, win };
 }
@@ -344,6 +361,7 @@ function evaluateGrid() {
       }
     }
   });
+  totalWin = round2(totalWin);   // avoid float drift when summing many lines
 
   // Scatter: count on the three middle reels.
   let scatterCount = 0;
@@ -530,7 +548,7 @@ function topUp() {
 function buyBonusCost() { return round2(totalBet() * BUY_BONUS_COST); }
 
 async function buyBonus() {
-  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  if (state.spinning || state.inFreeGame || state.inGoldGame || state.auto) return;
   const cost = buyBonusCost();
   if (state.credit < cost) {
     showWinPopup('NINCS ELÉG KREDIT');
@@ -571,9 +589,12 @@ function startAutoplay(count) {
   if (!state.spinning && !state.inFreeGame && !state.inGoldGame) doSpin();
 }
 
+let autoTimer = null;
+
 function stopAutoplay() {
   state.auto = false;
   state.autoRemaining = 0;
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
   $('#autoBtn').classList.remove('active');
 }
 
@@ -582,7 +603,15 @@ function scheduleNext() {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   if (!state.auto) return;
   if (state.autoRemaining <= 0 || state.credit < totalBet()) { stopAutoplay(); return; }
-  setTimeout(() => { if (!state.spinning) doSpin(); }, 500);
+  if (autoTimer) clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => {
+    autoTimer = null;
+    // Re-check every condition at fire time (autoplay may have been stopped).
+    if (state.auto && !state.spinning && !state.inFreeGame && !state.inGoldGame
+        && state.autoRemaining > 0 && state.credit >= totalBet()) {
+      doSpin();
+    }
+  }, 500);
 }
 
 /* ------------------------------ Win juice ------------------------------- */
@@ -798,11 +827,14 @@ async function doSpin() {
       hideWinPopup();
       return;
     }
-    state.credit -= totalBet();
+    state.credit = round2(state.credit - totalBet());
   }
 
   state.spinning = true;
   state.lastWin = 0;
+  // Snapshot the reel WILD weight so a mid-spin RTP slider change never
+  // affects the symbols still landing on the in-flight spin.
+  activeWild = wildWeightFor(state.rtp);
   clearWinVisuals();
   hideWinPopup();
   updateMeters();
@@ -811,31 +843,40 @@ async function doSpin() {
   $('#startBtn').classList.add('stop');
   SFX.play('spin');
 
-  if (state.inFreeGame) {
-    await freeSpinRound();                 // scatter sticky respins
-  } else {
-    await animateSpin(null);               // base game or gold bonus spin
-    const result = evaluateGrid();
-    await settleResult(result, goldSpinNow);
-  }
+  let ok = false;
+  try {
+    if (state.inFreeGame) {
+      await freeSpinRound();                 // scatter sticky respins
+    } else {
+      await animateSpin(null);               // base game or gold bonus spin
+      const result = evaluateGrid();
+      await settleResult(result, goldSpinNow);
+    }
 
-  if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
+    if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
 
-  // A base-game autoplay spin consumes one of the remaining count.
-  if (!freeMode && state.auto && Number.isFinite(state.autoRemaining)) {
-    state.autoRemaining = Math.max(0, state.autoRemaining - 1);
-  }
-  // Stop autoplay on a big base-game win if requested.
-  if (!freeMode && state.auto && state.autoStopBig && state.lastWin >= totalBet() * 20) {
+    // A base-game autoplay spin consumes one of the remaining count.
+    if (!freeMode && state.auto && Number.isFinite(state.autoRemaining)) {
+      state.autoRemaining = Math.max(0, state.autoRemaining - 1);
+    }
+    // Stop autoplay on a big base-game win if requested.
+    if (!freeMode && state.auto && state.autoStopBig && state.lastWin >= totalBet() * 20) {
+      stopAutoplay();
+    }
+    ok = true;
+  } catch (err) {
+    console.error('spin error', err);       // never leave the game frozen
     stopAutoplay();
+  } finally {
+    activeWild = null;
+    state.spinning = false;
+    $('#startBtn').textContent = 'START';
+    $('#startBtn').classList.remove('stop');
+    setControlsEnabled(true);
+    updateMeters();
+    saveGame();
   }
-
-  state.spinning = false;
-  $('#startBtn').textContent = 'START';
-  $('#startBtn').classList.remove('stop');
-  setControlsEnabled(true);
-  updateMeters();
-  saveGame();
+  if (!ok) return;
 
   // Continue free game / gold bonus / autoplay chains.
   if (state.inFreeGame && state.freeSpins > 0) {
@@ -1013,7 +1054,7 @@ function changeBet(dir) {
 }
 
 function maxBet() {
-  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  if (state.spinning || state.inFreeGame || state.inGoldGame || state.auto) return;
   state.betIndex = BET_STEPS.length - 1;
   updateMeters();
   saveGame();
@@ -1161,7 +1202,7 @@ function buildPaytable() {
     let rows = '';
     if (Object.keys(def.pay).length) {
       for (const n of [5, 4, 3, 2]) {
-        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét</span></div>`;
+        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét/vonal</span></div>`;
       }
     } else if (def.kind === 'wild') {
       rows = '<div class="pt-row"><span>Helyettesít + ×2 / wild</span></div>';
@@ -1189,6 +1230,7 @@ function init() {
   $('#startBtn').addEventListener('click', () => {
     SFX.resume();
     if (state.auto) { stopAutoplay(); return; }
+    if (state.inFreeGame || state.inGoldGame) return;  // bonus drives itself
     doSpin();
   });
   $('#betMinus').addEventListener('click', () => changeBet(-1));
@@ -1252,12 +1294,15 @@ function init() {
     if (e.target.id === 'gambleModal' && !gambleBusy) gambleCollect();
   });
 
-  // Keyboard: space to spin
+  // Keyboard: space to spin (ignored while any modal is open, mid-spin,
+  // during a bonus, or during autoplay — and it never hijacks form inputs).
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-      e.preventDefault();
-      if (!state.spinning && $('#gambleModal').classList.contains('hidden')) doSpin();
-    }
+    if (e.code !== 'Space') return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (/^(INPUT|BUTTON|TEXTAREA|SELECT)$/.test(tag)) return;
+    if (document.querySelector('.modal:not(.hidden)')) return;
+    e.preventDefault();
+    if (!state.spinning && !state.auto && !state.inFreeGame && !state.inGoldGame) doSpin();
   });
 }
 
@@ -1265,4 +1310,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, winScale, BASE_RTP };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, wildWeight, wildWeightFor, reelSymbols };
