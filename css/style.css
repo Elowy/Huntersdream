@@ -481,7 +481,7 @@ body::after {
 }
 .extra-actions {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 8px;
   margin-bottom: 8px;
 }
@@ -496,6 +496,7 @@ body::after {
 }
 .buy-btn { background: linear-gradient(180deg, #ffd76a, #d89a20); box-shadow: 0 3px 0 #8a6410; }
 .topup-btn { background: linear-gradient(180deg, #7dff9a, #23a544); color: #06210f; border-color: #12622a; box-shadow: 0 3px 0 #0d4a20; }
+.withdraw-btn { background: linear-gradient(180deg, #ffd0a0, #d87a3a); color: #2a1406; border-color: #8a4a18; box-shadow: 0 3px 0 #6a3410; }
 .xtra-btn:active { transform: translateY(3px); box-shadow: none; }
 .xtra-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -846,6 +847,11 @@ body::after {
   border: 1px solid rgba(125,255,154,0.35);
   border-radius: 4px;
   padding: 1px 5px;
+}
+.hp-log-item.out {
+  color: #ffb27d;
+  background: rgba(216,122,58,0.18);
+  border-color: rgba(255,178,125,0.4);
 }
 
 .hidden { display: none !important; }

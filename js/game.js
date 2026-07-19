@@ -165,10 +165,12 @@ const state = {
   gambleNet: 0,           // cumulative gamble result so far (won minus lost)
   rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
   deposited: START_CREDIT,// total credits ever put in (initial + top-ups)
-  deposits: [],           // log of deposit amounts, for the history panel
+  withdrawn: 0,           // total credits ever taken out (cashed out)
+  deposits: [],           // cash-flow log (+ deposits / − withdrawals) for the panel
 };
 
 const TOPUP_AMOUNT = 50;       // credit added by the top-up button
+const WITHDRAW_AMOUNT = 10;    // credit removed by the withdraw (cash-out) button
 const BUY_BONUS_COST = 50;     // free-spin bonus buy costs 50x total bet
 const SFX = window.SFX || { play() {}, toggleMute() { return false; }, setMuted() {}, get muted() { return false; }, resume() {} };
 
@@ -545,8 +547,10 @@ function updateMeters() {
  * result (+/-) so the player can see how far up or down they are. */
 function updateHistoryPanel() {
   const dep = round2(state.deposited);
+  const wdr = round2(state.withdrawn);
   const bal = round2(state.credit);
-  const net = round2(bal - dep);
+  // Net result = money still on the table + money cashed out − money put in.
+  const net = round2(bal + wdr - dep);
   const setTxt = (sel, txt) => { const el = $(sel); if (el) el.textContent = txt; };
   setTxt('#hpDeposited', fmt(dep) + ' €');
   setTxt('#hpBalance', fmt(bal) + ' €');
@@ -558,15 +562,17 @@ function updateHistoryPanel() {
   }
   const log = $('#hpLog');
   if (log) {
-    log.innerHTML = state.deposits.slice(-6).reverse()
-      .map((e) => `<span class="hp-log-item">+${fmt(e.amount)} €</span>`).join('');
+    log.innerHTML = state.deposits.slice(-6).reverse().map((e) => {
+      const out = e.amount < 0;
+      return `<span class="hp-log-item${out ? ' out' : ''}">${out ? '−' : '+'}${fmt(Math.abs(e.amount))} €</span>`;
+    }).join('');
   }
 }
 
 function setControlsEnabled(enabled) {
   const busy = !enabled || state.inFreeGame || state.inGoldGame;
   ['#betMinus', '#betPlus', '#maxBet'].forEach((s) => { $(s).disabled = busy; });
-  ['#buyBonusBtn', '#topupBtn'].forEach((s) => { const el = $(s); if (el) el.disabled = busy; });
+  ['#buyBonusBtn', '#topupBtn', '#withdrawBtn'].forEach((s) => { const el = $(s); if (el) el.disabled = busy; });
 }
 
 /* ------------------------------ Persistence ----------------------------- */
@@ -575,8 +581,8 @@ function saveGame() {
   try {
     localStorage.setItem('hd_save', JSON.stringify({
       credit: state.credit, betIndex: state.betIndex,
-      deposited: state.deposited, deposits: state.deposits.slice(-40),
-      gambleNet: state.gambleNet,
+      deposited: state.deposited, withdrawn: state.withdrawn,
+      deposits: state.deposits.slice(-40), gambleNet: state.gambleNet,
     }));
   } catch (e) { /* ignore */ }
 }
@@ -590,6 +596,7 @@ function loadGame() {
         state.betIndex = s.betIndex;
       }
       if (typeof s.deposited === 'number' && s.deposited >= 0) state.deposited = round2(s.deposited);
+      if (typeof s.withdrawn === 'number' && s.withdrawn >= 0) state.withdrawn = round2(s.withdrawn);
       if (Array.isArray(s.deposits)) {
         state.deposits = s.deposits.filter((d) => d && typeof d.amount === 'number').slice(-40);
       }
@@ -604,11 +611,33 @@ function topUp() {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   state.credit = round2(state.credit + TOPUP_AMOUNT);
   state.deposited = round2(state.deposited + TOPUP_AMOUNT);
-  state.deposits.push({ amount: TOPUP_AMOUNT });
-  if (state.deposits.length > 40) state.deposits = state.deposits.slice(-40);
+  logCashFlow(TOPUP_AMOUNT);
   SFX.play('coin');
   updateMeters();
   saveGame();
+}
+
+/* Cash out: take a fixed amount off the balance. Counts as withdrawn money,
+ * so the net +/- result is unchanged (realized profit, not a loss). */
+function withdraw() {
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  if (state.credit < WITHDRAW_AMOUNT) {
+    showWinPopup('NINCS ELÉG KREDIT');
+    SFX.play('gambleLose');
+    setTimeout(hideWinPopup, 1000);
+    return;
+  }
+  state.credit = round2(state.credit - WITHDRAW_AMOUNT);
+  state.withdrawn = round2(state.withdrawn + WITHDRAW_AMOUNT);
+  logCashFlow(-WITHDRAW_AMOUNT);
+  SFX.play('click');
+  updateMeters();
+  saveGame();
+}
+
+function logCashFlow(amount) {
+  state.deposits.push({ amount });
+  if (state.deposits.length > 40) state.deposits = state.deposits.slice(-40);
 }
 
 function buyBonusCost() { return round2(totalBet() * BUY_BONUS_COST); }
@@ -1395,6 +1424,7 @@ function init() {
 
   // Top-up and bonus buy.
   $('#topupBtn').addEventListener('click', () => { SFX.resume(); topUp(); });
+  $('#withdrawBtn').addEventListener('click', () => { SFX.resume(); withdraw(); });
   $('#buyBonusBtn').addEventListener('click', () => { SFX.resume(); buyBonus(); });
 
   // Autoplay modal.
@@ -1447,4 +1477,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, revealGoldMultipliers, settleResult, clearGamble };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw };
