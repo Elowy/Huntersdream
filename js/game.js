@@ -51,6 +51,9 @@ const SYMBOLS = {
   // GOLD appears only on the first and last reel; it carries a 1-9x win
   // multiplier and 3+ on the board trigger the wild bonus spins.
   gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 4, pay: {} },
+  // BLANK is a non-paying filler; its frequency (set by RTP) controls how
+  // often winning combinations line up. Weight is applied dynamically.
+  blank:   { emoji: '🌿', name: '',        kind: 'blank', weight: 0, pay: {} },
 };
 
 /* Which reels each symbol may appear on (0-indexed). Scatter only on the
@@ -112,14 +115,22 @@ const START_CREDIT = 10.00;
 const MAX_STICKY_RESPINS = 6;
 const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 
-/* Payout balance (RTP). The paytable's natural return at scale 1.0 was
- * measured (~581%), so every win is scaled to hit the chosen target RTP.
- * Adjustable with a slider from 80% up to 120%. */
-const BASE_RTP = 5.81;
+/* Payout balance (RTP). The paytable pays exactly its listed multipliers;
+ * the return is controlled on the REELS instead — a non-paying filler symbol
+ * whose weight is tuned so the natural RTP hits the chosen target. More
+ * filler => rarer wins => lower RTP. FILLER_TABLE[rtp-80] is the filler
+ * weight measured by Monte Carlo for each target percent (80..120). */
 const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent
-function liveWinScale() { return (state.rtp / 100) / BASE_RTP; }
-let activeWinScale = null;   // snapshot held for the duration of a spin
-function winScale() { return activeWinScale != null ? activeWinScale : liveWinScale(); }
+const FILLER_TABLE = [
+  92, 91, 90, 89, 88, 87, 86, 85, 84, 84, 83, 82, 81, 81, 80, 79, 79, 78, 78, 77,
+  76, 76, 75, 75, 74, 74, 73, 72, 72, 71, 71, 70, 70, 69, 68, 68, 67, 67, 66, 65, 65,
+];
+let activeFiller = null;   // filler weight snapshot for the current spin
+function fillerWeightFor(rtp) {
+  const i = Math.max(0, Math.min(FILLER_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
+  return FILLER_TABLE[i];
+}
+function fillerWeight() { return activeFiller != null ? activeFiller : fillerWeightFor(state.rtp); }
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -160,6 +171,7 @@ function reelSymbols(col) {
   // Build the pool of symbols allowed on this reel.
   const pool = [];
   for (const [id, def] of Object.entries(SYMBOLS)) {
+    if (def.kind === 'blank') continue; // added below with a dynamic weight
     if (def.kind === 'scatter' && !MIDDLE_REELS.includes(col)) continue;
     if (def.kind === 'gold' && !GOLD_REELS.includes(col)) continue; // gold: ends only
     if (def.kind === 'wild' && col === 0) continue; // no wild on first reel
@@ -167,6 +179,9 @@ function reelSymbols(col) {
     if (def.kind === 'wild' && state.inGoldGame) w *= 4; // more wilds in gold bonus
     for (let i = 0; i < w; i++) pool.push(id);
   }
+  // Non-paying filler tunes the RTP: more filler => rarer wins.
+  const fw = fillerWeight();
+  for (let i = 0; i < fw; i++) pool.push('blank');
   return pool;
 }
 
@@ -297,8 +312,8 @@ function evaluateLine(line) {
   let base = null;
   for (const s of symbolsOnLine) {
     if (SYMBOLS[s].kind === 'wild') continue;
-    // scatter and gold never take part in a line win
-    if (SYMBOLS[s].kind === 'scatter' || SYMBOLS[s].kind === 'gold') break;
+    // scatter, gold and filler never take part in a line win
+    if (SYMBOLS[s].kind === 'scatter' || SYMBOLS[s].kind === 'gold' || SYMBOLS[s].kind === 'blank') break;
     base = s;
     break;
   }
@@ -321,10 +336,10 @@ function evaluateLine(line) {
   const pay = SYMBOLS[base].pay[count];
   if (!pay) return null;
 
-  // Win = paytable × total bet × wild multiplier, then scaled by the RTP
-  // setting so the game balances to the chosen return.
+  // Win = paytable × total bet × wild multiplier. The paytable pays exactly
+  // its listed value; RTP is balanced on the reels, not by scaling wins.
   const multiplier = Math.pow(2, wilds);
-  const win = round2(pay * totalBet() * multiplier * winScale());
+  const win = round2(pay * totalBet() * multiplier);
 
   return { symbol: base, count, wilds, multiplier, win };
 }
@@ -816,9 +831,9 @@ async function doSpin() {
 
   state.spinning = true;
   state.lastWin = 0;
-  // Snapshot the payout scale so mid-spin RTP slider changes never affect
-  // the in-flight spin or free-spin comparisons.
-  activeWinScale = liveWinScale();
+  // Snapshot the reel filler weight so mid-spin RTP slider changes never
+  // affect the symbols still landing on the in-flight spin.
+  activeFiller = fillerWeightFor(state.rtp);
   clearWinVisuals();
   hideWinPopup();
   updateMeters();
@@ -852,7 +867,7 @@ async function doSpin() {
     console.error('spin error', err);       // never leave the game frozen
     stopAutoplay();
   } finally {
-    activeWinScale = null;
+    activeFiller = null;
     state.spinning = false;
     $('#startBtn').textContent = 'START';
     $('#startBtn').classList.remove('stop');
@@ -1294,4 +1309,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, winScale, BASE_RTP };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, fillerWeight, fillerWeightFor, reelSymbols };
