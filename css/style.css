@@ -481,7 +481,7 @@ body::after {
 }
 .extra-actions {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 8px;
   margin-bottom: 8px;
 }
@@ -496,6 +496,7 @@ body::after {
 }
 .buy-btn { background: linear-gradient(180deg, #ffd76a, #d89a20); box-shadow: 0 3px 0 #8a6410; }
 .topup-btn { background: linear-gradient(180deg, #7dff9a, #23a544); color: #06210f; border-color: #12622a; box-shadow: 0 3px 0 #0d4a20; }
+.withdraw-btn { background: linear-gradient(180deg, #ffd0a0, #d87a3a); color: #2a1406; border-color: #8a4a18; box-shadow: 0 3px 0 #6a3410; }
 .xtra-btn:active { transform: translateY(3px); box-shadow: none; }
 .xtra-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -650,14 +651,16 @@ body::after {
 }
 .gamble-amounts .ga-col {
   flex: 1;
+  min-width: 0;
   background: rgba(0,0,0,0.25);
   border: 1px solid rgba(246,196,69,0.35);
   border-radius: 8px;
-  padding: 6px 4px;
+  padding: 6px 3px;
   font-weight: 900;
-  font-size: clamp(13px, 3.4vw, 17px);
+  font-size: clamp(11px, 2.9vw, 14px);
   color: var(--green-led);
 }
+.gamble-amounts .ga-col:nth-child(4) b { color: #7dd0ff; }
 .gamble-amounts .ga-col:nth-child(2) b { color: #ffd76a; }
 .gamble-amounts .ga-col:nth-child(3) b { color: #ff9a3b; }
 .gamble-amounts .ga-label {
@@ -763,6 +766,34 @@ body::after {
   letter-spacing: 1px;
   margin-bottom: 6px;
 }
+.gamble-stat {
+  font-size: 12px;
+  color: #c9b98a;
+  margin-bottom: 8px;
+}
+.gamble-stat b.pos { color: var(--green-led); }
+.gamble-stat b.neg { color: #ff6a6a; }
+.gamble-ranks {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.g-rank {
+  padding: 8px 2px;
+  border: 2px solid #2a2f3a;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  color: #1a1a1a;
+  background: linear-gradient(180deg, #f2f2ea, #d4d2c0);
+  box-shadow: 0 2px 0 #9a9070;
+}
+.g-rank:active { transform: translateY(2px); box-shadow: none; }
+.g-rank:disabled { opacity: 0.5; cursor: not-allowed; }
+.meter-sub { display: block; font-size: 10px; color: #9a8a5a; margin-top: 2px; }
+.meter-sub b { color: #c9a24a; }
 .gamble-suits { display: flex; gap: 8px; margin-bottom: 12px; }
 .g-suit {
   flex: 1;
@@ -816,6 +847,11 @@ body::after {
   border: 1px solid rgba(125,255,154,0.35);
   border-radius: 4px;
   padding: 1px 5px;
+}
+.hp-log-item.out {
+  color: #ffb27d;
+  background: rgba(216,122,58,0.18);
+  border-color: rgba(255,178,125,0.4);
 }
 
 .hidden { display: none !important; }
