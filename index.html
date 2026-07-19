@@ -66,10 +66,28 @@
         <span class="logo-spins">SPINS</span>
       </h1>
       <button id="boardBtn" class="icon-btn" type="button" title="Toplista">🏆</button>
+      <button id="missionsBtn" class="icon-btn" type="button" title="Küldetések">🎯</button>
+      <button id="statsBtn" class="icon-btn" type="button" title="Statisztika">📊</button>
       <button id="turboBtn" class="icon-btn" type="button" title="Villám — gyors pörgetés">⚡</button>
+      <button id="musicBtn" class="icon-btn" type="button" title="Háttérzene">🎵</button>
       <button id="muteBtn" class="icon-btn" type="button" title="Hang">🔊</button>
       <button id="rulesBtn" class="rules-btn" type="button">Szabályok</button>
     </header>
+
+    <!-- Engagement info strip: level + XP, progressive jackpot, combo streak -->
+    <div class="infobar">
+      <button class="ib-level" id="levelChip" type="button" title="Szint & küldetések">
+        <span class="ib-lvl">Lv <b id="lvlNum">1</b></span>
+        <span class="ib-xp"><i id="xpFill"></i></span>
+      </button>
+      <div class="ib-jackpot" id="jackpotChip" title="Progresszív jackpot">
+        <span class="ib-jp-label">💎 JACKPOT</span>
+        <span class="ib-jp-val" id="jackpotVal">0.00 €</span>
+      </div>
+      <div class="ib-combo hidden" id="comboChip" title="Nyerő-sorozat szorzó">
+        <span id="comboVal">×1</span>
+      </div>
+    </div>
 
     <!-- Free spins banner -->
     <div id="freeBanner" class="free-banner hidden">
@@ -192,17 +210,26 @@
         <li><b>SCATTER / BONUS</b> (🏚️) csak a 3 középső tárcsán jelenik meg.
             3 Scatter a 3 középső tárcsán <b>10 ingyenes játékot</b> indít.</li>
         <li><b>Sticky Free Spins:</b> az ingyenes játékokban a nyerő szimbólumok
-            ragadnak, a tárcsák újrapörögnek a magasabb nyereményekért. Újabb 10
-            ingyenes játék nyerhető az ingyenes játék módban. A nyeremények
-            <b>összeadódnak</b>, és a bónusz <b>végén</b> egyben kerülnek kifizetésre.</li>
-        <li><b>Bónusz kifizetési szint:</b> az ingyenes játékok az alapjátéknál
-            <b>bőkezűbb, kb. 150%-os</b> szinten futnak (gyakoribb WILD).</li>
+            ragadnak, a tárcsák újrapörögnek a magasabb nyereményekért. A nyeremények
+            <b>összeadódnak</b>, és a bónusz <b>végén</b> egyben kerülnek kifizetésre.
+            A bónuszban <b>nincs</b> arany és scatter szimbólum.</li>
+        <li><b>Expanding WILD:</b> az ingyenes játékban a leérkező <b>WILD</b> (🔥)
+            <b>kitölti a teljes tárcsát</b> — így sokkal látványosabb, nagyobb
+            nyeremények állnak össze.</li>
         <li><b>GOLD</b> (🪙) csak az <b>első és utolsó</b> tárcsán jelenik meg, és
             <b>1×, 1.5× vagy 2×</b> szorzót hordoz (a magasabb ritkább, max 2×). A szorzó
             <b>csak akkor jelenik meg</b>, ha van nyeremény, amit meg tud szorozni — ilyenkor
-            a <b>teljes nyereményt</b> szorozza. Az ingyenes játékban a GOLD <b>ragad</b>.
+            a <b>teljes nyereményt</b> szorozza.
             <b>3 vagy több GOLD</b> a pályán <b>5 pörgetést</b> indít, amelyben
             <b>több WILD</b> jelenik meg.</li>
+        <li><b>🔥 Nyerő-sorozat (combo):</b> az egymás utáni nyerő pörgetések
+            szorzót adnak a nyereményedre — <b>×1.25 → ×1.5 → ×1.75 → ×2</b>. Egy
+            nyeretlen pörgetés nullázza. (Az alapjáték RTP-je változatlan.)</li>
+        <li><b>💎 Progresszív jackpot:</b> minden pörgetés hizlalja a közös
+            jackpotot, ami <b>véletlenszerűen</b> bárkinek kifizethet.</li>
+        <li><b>⭐ Szint & XP:</b> pörgetésekért XP jár; szintlépéskor
+            <b>kredit-jutalmat</b> kapsz. <b>🎯 Küldetések:</b> teljesíthető
+            kihívások, a jutalom automatikusan jóváíródik.</li>
         <li><b>DUPLÁZÁS:</b> nyeremény után (a <b>bónusznyeremény</b> is)
             kockáztathatsz — találd el a lap <b>színét</b> (piros/fekete) a
             nyereményed <b>×2</b>-éért, a pontos <b>szimbólumot</b> (♥ ♦ ♠ ♣)
@@ -310,6 +337,38 @@
       </div>
     </div>
   </div>
+
+  <!-- Missions (küldetések) modal -->
+  <div class="modal hidden" id="missionModal">
+    <div class="modal-box">
+      <button class="modal-close" id="missionClose" type="button">✕</button>
+      <h2>🎯 KÜLDETÉSEK</h2>
+      <p class="board-sub">Teljesítsd a kihívásokat — a jutalom automatikusan jóváíródik. <b id="missionSub"></b></p>
+      <ul class="mission-list" id="missionList"></ul>
+    </div>
+  </div>
+
+  <!-- Statistics (statisztika) modal -->
+  <div class="modal hidden" id="statsModal">
+    <div class="modal-box">
+      <button class="modal-close" id="statsClose" type="button">✕</button>
+      <h2>📊 STATISZTIKA</h2>
+      <div class="stats-grid">
+        <div class="stat-cell"><span class="sc-label">Pörgetések</span><span class="sc-value" id="stSpins">0</span></div>
+        <div class="stat-cell"><span class="sc-label">Megtett tét</span><span class="sc-value" id="stWagered">0.00 €</span></div>
+        <div class="stat-cell"><span class="sc-label">Össz. nyeremény</span><span class="sc-value" id="stWon">0.00 €</span></div>
+        <div class="stat-cell"><span class="sc-label">Legnagyobb nyeremény</span><span class="sc-value" id="stBiggest">0.00 €</span></div>
+        <div class="stat-cell"><span class="sc-label">Leghosszabb sorozat</span><span class="sc-value" id="stStreak">0</span></div>
+        <div class="stat-cell"><span class="sc-label">Tapasztalati RTP</span><span class="sc-value" id="stRtp">—</span></div>
+        <div class="stat-cell"><span class="sc-label">Szint</span><span class="sc-value" id="stLevel">1</span></div>
+        <div class="stat-cell"><span class="sc-label">Jackpot ütések</span><span class="sc-value" id="stJackpots">0</span></div>
+      </div>
+      <p class="rtp-note">A tapasztalati RTP a saját eddigi nyereményed a megtett téthez képest — rövid távon erősen ingadozik, hosszú távon a beállított szint felé tart.</p>
+    </div>
+  </div>
+
+  <!-- Toast: level-up / mission notifications (non-blocking) -->
+  <div class="toast" id="toast"></div>
 
   <script src="js/sound.js"></script>
   <script src="js/symbols.js"></script>
