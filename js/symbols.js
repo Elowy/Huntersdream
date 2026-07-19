@@ -448,21 +448,6 @@
   <ellipse cx="37" cy="35" rx="11" ry="5" fill="#fff" opacity=".45" transform="rotate(-32 37 35)"/>
 </svg>`,
 
-    /* ---------------- BLANK — muted forest filler ------------------- */
-    blank: `
-<svg class="art art-blank" viewBox="0 0 100 100">
-  <defs>
-    <linearGradient id="blG" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#b8bd9a"/><stop offset="1" stop-color="#8a9068"/>
-    </linearGradient>
-  </defs>
-  <g opacity="0.5">
-    <path d="M50 74 C50 60 44 50 34 44 C44 46 50 52 52 60 C54 48 62 40 74 40 C66 48 58 54 52 66 Z" fill="url(#blG)"/>
-    <path d="M50 78 C50 66 46 58 40 54 C48 55 52 60 53 66 C55 57 61 51 70 51 C63 58 57 63 53 72 Z" fill="#9aa07a"/>
-    <rect x="48" y="70" width="4" height="14" rx="2" fill="#7a7f58"/>
-  </g>
-</svg>`,
-
     ace:   woodCard('A', 'ace', '#f0c247', '#a9760f'),
     king:  woodCard('K', 'king', '#d84a3a', '#8f1c14'),
     queen: woodCard('Q', 'queen', '#a94ec9', '#5f238a'),

@@ -22,38 +22,36 @@ const ROWS = 3;
  */
 const SYMBOLS = {
   // Premium symbols: the hunter and the wolf lead the paytable and pay
-  // already from TWO of a kind.
-  hunter:  { emoji: '🏹', name: 'HUNTER',  kind: 'high', weight: 3,
+  // already from TWO of a kind. (Reel weights are on a x10 scale for fine
+  // RTP control; wins pay per line.)
+  hunter:  { emoji: '🏹', name: 'HUNTER',  kind: 'high', weight: 30,
              pay: { 2: 20, 3: 40, 4: 60, 5: 200 } },
-  wolf:    { emoji: '🐺', name: 'WOLF',    kind: 'high', weight: 4,
+  wolf:    { emoji: '🐺', name: 'WOLF',    kind: 'high', weight: 40,
              pay: { 2: 8, 3: 16, 4: 32, 5: 80 } },
   // Buffalo replaces the old bear + boar pair.
-  buffalo: { emoji: '🦬', name: 'BUFFALO', kind: 'high', weight: 6,
+  buffalo: { emoji: '🦬', name: 'BUFFALO', kind: 'high', weight: 60,
              pay: { 3: 8, 4: 16, 5: 32 } },
-  eagle:   { emoji: '🦅', name: 'EAGLE',   kind: 'high', weight: 6,
+  eagle:   { emoji: '🦅', name: 'EAGLE',   kind: 'high', weight: 60,
              pay: { 3: 4, 4: 8, 5: 24 } },
-  ace:     { emoji: 'A',  name: 'A',       kind: 'card', weight: 8,
+  ace:     { emoji: 'A',  name: 'A',       kind: 'card', weight: 80,
              pay: { 3: 2, 4: 6, 5: 16 } },
-  king:    { emoji: 'K',  name: 'K',       kind: 'card', weight: 8,
+  king:    { emoji: 'K',  name: 'K',       kind: 'card', weight: 80,
              pay: { 3: 2, 4: 6, 5: 16 } },
-  queen:   { emoji: 'Q',  name: 'Q',       kind: 'card', weight: 9,
+  queen:   { emoji: 'Q',  name: 'Q',       kind: 'card', weight: 90,
              pay: { 3: 1, 4: 4, 5: 8 } },
-  jack:    { emoji: 'J',  name: 'J',       kind: 'card', weight: 9,
+  jack:    { emoji: 'J',  name: 'J',       kind: 'card', weight: 90,
              pay: { 3: 1, 4: 4, 5: 8 } },
-  ten:     { emoji: '10', name: '10',      kind: 'card', weight: 10,
+  ten:     { emoji: '10', name: '10',      kind: 'card', weight: 100,
              pay: { 3: 1, 4: 2, 5: 4 } },
-  nine:    { emoji: '9',  name: '9',       kind: 'card', weight: 10,
+  nine:    { emoji: '9',  name: '9',       kind: 'card', weight: 100,
              pay: { 3: 1, 4: 2, 5: 4 } },
-  // WILD is the fire — substitutes for all but the scatter and doubles per wild.
-  // Uncapped per reel, so it can land 3 stacked in one column.
-  wild:    { emoji: '🔥', name: 'WILD',    kind: 'wild', weight: 3, pay: {} },
-  scatter: { emoji: '🏚️', name: 'BONUS',   kind: 'scatter', weight: 2, pay: {} },
+  // WILD is the fire — substitutes for all but the scatter and doubles per
+  // wild. Its weight is the RTP lever, applied dynamically in reelSymbols.
+  wild:    { emoji: '🔥', name: 'WILD',    kind: 'wild', weight: 0, pay: {} },
+  scatter: { emoji: '🏚️', name: 'BONUS',   kind: 'scatter', weight: 20, pay: {} },
   // GOLD appears only on the first and last reel; it carries a 1-9x win
   // multiplier and 3+ on the board trigger the wild bonus spins.
-  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 4, pay: {} },
-  // BLANK is a non-paying filler; its frequency (set by RTP) controls how
-  // often winning combinations line up. Weight is applied dynamically.
-  blank:   { emoji: '🌿', name: '',        kind: 'blank', weight: 0, pay: {} },
+  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 40, pay: {} },
 };
 
 /* Which reels each symbol may appear on (0-indexed). Scatter only on the
@@ -115,22 +113,22 @@ const START_CREDIT = 10.00;
 const MAX_STICKY_RESPINS = 6;
 const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 
-/* Payout balance (RTP). The paytable pays exactly its listed multipliers;
- * the return is controlled on the REELS instead — a non-paying filler symbol
- * whose weight is tuned so the natural RTP hits the chosen target. More
- * filler => rarer wins => lower RTP. FILLER_TABLE[rtp-80] is the filler
- * weight measured by Monte Carlo for each target percent (80..120). */
+/* Payout balance (RTP). Wins pay exactly the paytable per line (like the
+ * original machine); the return is controlled on the REELS by how often the
+ * WILD symbol appears — a real, paying-helper symbol, not a filler. More
+ * wild => more (and bigger) wins => higher RTP. WILD_TABLE[rtp-80] is the
+ * wild weight (on the x10 reel scale) measured by Monte Carlo per target. */
 const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent
-const FILLER_TABLE = [
-  92, 91, 90, 89, 88, 87, 86, 85, 84, 84, 83, 82, 81, 81, 80, 79, 79, 78, 78, 77,
-  76, 76, 75, 75, 74, 74, 73, 72, 72, 71, 71, 70, 70, 69, 68, 68, 67, 67, 66, 65, 65,
+const WILD_TABLE = [
+  77, 77, 78, 79, 79, 80, 81, 81, 82, 83, 84, 84, 85, 86, 86, 87, 88, 88, 89, 89,
+  90, 91, 91, 92, 93, 93, 94, 95, 95, 96, 96, 97, 97, 98, 99, 99, 100, 100, 101, 102, 102,
 ];
-let activeFiller = null;   // filler weight snapshot for the current spin
-function fillerWeightFor(rtp) {
-  const i = Math.max(0, Math.min(FILLER_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
-  return FILLER_TABLE[i];
+let activeWild = null;   // wild weight snapshot for the current spin
+function wildWeightFor(rtp) {
+  const i = Math.max(0, Math.min(WILD_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
+  return WILD_TABLE[i];
 }
-function fillerWeight() { return activeFiller != null ? activeFiller : fillerWeightFor(state.rtp); }
+function wildWeight() { return activeWild != null ? activeWild : wildWeightFor(state.rtp); }
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -171,17 +169,18 @@ function reelSymbols(col) {
   // Build the pool of symbols allowed on this reel.
   const pool = [];
   for (const [id, def] of Object.entries(SYMBOLS)) {
-    if (def.kind === 'blank') continue; // added below with a dynamic weight
+    if (def.kind === 'wild') continue; // wild is added below with the dynamic RTP weight
     if (def.kind === 'scatter' && !MIDDLE_REELS.includes(col)) continue;
     if (def.kind === 'gold' && !GOLD_REELS.includes(col)) continue; // gold: ends only
-    if (def.kind === 'wild' && col === 0) continue; // no wild on first reel
-    let w = def.weight;
-    if (def.kind === 'wild' && state.inGoldGame) w *= 4; // more wilds in gold bonus
-    for (let i = 0; i < w; i++) pool.push(id);
+    for (let i = 0; i < def.weight; i++) pool.push(id);
   }
-  // Non-paying filler tunes the RTP: more filler => rarer wins.
-  const fw = fillerWeight();
-  for (let i = 0; i < fw; i++) pool.push('blank');
+  // WILD frequency is the RTP lever — a real, paying-helper symbol, not a
+  // filler. Not on the first reel; boosted during the gold bonus spins.
+  if (col !== 0) {
+    let ww = wildWeight();
+    if (state.inGoldGame) ww *= 4;
+    for (let i = 0; i < ww; i++) pool.push('wild');
+  }
   return pool;
 }
 
@@ -312,8 +311,8 @@ function evaluateLine(line) {
   let base = null;
   for (const s of symbolsOnLine) {
     if (SYMBOLS[s].kind === 'wild') continue;
-    // scatter, gold and filler never take part in a line win
-    if (SYMBOLS[s].kind === 'scatter' || SYMBOLS[s].kind === 'gold' || SYMBOLS[s].kind === 'blank') break;
+    // scatter and gold never take part in a line win
+    if (SYMBOLS[s].kind === 'scatter' || SYMBOLS[s].kind === 'gold') break;
     base = s;
     break;
   }
@@ -336,10 +335,11 @@ function evaluateLine(line) {
   const pay = SYMBOLS[base].pay[count];
   if (!pay) return null;
 
-  // Win = paytable × total bet × wild multiplier. The paytable pays exactly
-  // its listed value; RTP is balanced on the reels, not by scaling wins.
+  // Win = paytable × line bet × wild multiplier (like the original 20-line
+  // machine). The paytable pays exactly its listed value; RTP is balanced on
+  // the reels (WILD frequency), never by scaling the wins.
   const multiplier = Math.pow(2, wilds);
-  const win = round2(pay * totalBet() * multiplier);
+  const win = round2(pay * lineBet() * multiplier);
 
   return { symbol: base, count, wilds, multiplier, win };
 }
@@ -361,6 +361,7 @@ function evaluateGrid() {
       }
     }
   });
+  totalWin = round2(totalWin);   // avoid float drift when summing many lines
 
   // Scatter: count on the three middle reels.
   let scatterCount = 0;
@@ -831,9 +832,9 @@ async function doSpin() {
 
   state.spinning = true;
   state.lastWin = 0;
-  // Snapshot the reel filler weight so mid-spin RTP slider changes never
-  // affect the symbols still landing on the in-flight spin.
-  activeFiller = fillerWeightFor(state.rtp);
+  // Snapshot the reel WILD weight so a mid-spin RTP slider change never
+  // affects the symbols still landing on the in-flight spin.
+  activeWild = wildWeightFor(state.rtp);
   clearWinVisuals();
   hideWinPopup();
   updateMeters();
@@ -867,7 +868,7 @@ async function doSpin() {
     console.error('spin error', err);       // never leave the game frozen
     stopAutoplay();
   } finally {
-    activeFiller = null;
+    activeWild = null;
     state.spinning = false;
     $('#startBtn').textContent = 'START';
     $('#startBtn').classList.remove('stop');
@@ -1201,7 +1202,7 @@ function buildPaytable() {
     let rows = '';
     if (Object.keys(def.pay).length) {
       for (const n of [5, 4, 3, 2]) {
-        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét</span></div>`;
+        if (def.pay[n]) rows += `<div class="pt-row"><span>${n}×</span><span>${def.pay[n]}× tét/vonal</span></div>`;
       }
     } else if (def.kind === 'wild') {
       rows = '<div class="pt-row"><span>Helyettesít + ×2 / wild</span></div>';
@@ -1309,4 +1310,4 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, fillerWeight, fillerWeightFor, reelSymbols };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleChoose, gambleCollect, setRtp, wildWeight, wildWeightFor, reelSymbols };
