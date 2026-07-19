@@ -117,7 +117,9 @@ const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
  * Adjustable with a slider from 80% up to 120%. */
 const BASE_RTP = 5.81;
 const RTP_MIN = 80, RTP_MAX = 120, RTP_DEFAULT = 96;   // percent
-function winScale() { return (state.rtp / 100) / BASE_RTP; }
+function liveWinScale() { return (state.rtp / 100) / BASE_RTP; }
+let activeWinScale = null;   // snapshot held for the duration of a spin
+function winScale() { return activeWinScale != null ? activeWinScale : liveWinScale(); }
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -530,7 +532,7 @@ function topUp() {
 function buyBonusCost() { return round2(totalBet() * BUY_BONUS_COST); }
 
 async function buyBonus() {
-  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  if (state.spinning || state.inFreeGame || state.inGoldGame || state.auto) return;
   const cost = buyBonusCost();
   if (state.credit < cost) {
     showWinPopup('NINCS ELÉG KREDIT');
@@ -571,9 +573,12 @@ function startAutoplay(count) {
   if (!state.spinning && !state.inFreeGame && !state.inGoldGame) doSpin();
 }
 
+let autoTimer = null;
+
 function stopAutoplay() {
   state.auto = false;
   state.autoRemaining = 0;
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
   $('#autoBtn').classList.remove('active');
 }
 
@@ -582,7 +587,15 @@ function scheduleNext() {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   if (!state.auto) return;
   if (state.autoRemaining <= 0 || state.credit < totalBet()) { stopAutoplay(); return; }
-  setTimeout(() => { if (!state.spinning) doSpin(); }, 500);
+  if (autoTimer) clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => {
+    autoTimer = null;
+    // Re-check every condition at fire time (autoplay may have been stopped).
+    if (state.auto && !state.spinning && !state.inFreeGame && !state.inGoldGame
+        && state.autoRemaining > 0 && state.credit >= totalBet()) {
+      doSpin();
+    }
+  }, 500);
 }
 
 /* ------------------------------ Win juice ------------------------------- */
@@ -798,11 +811,14 @@ async function doSpin() {
       hideWinPopup();
       return;
     }
-    state.credit -= totalBet();
+    state.credit = round2(state.credit - totalBet());
   }
 
   state.spinning = true;
   state.lastWin = 0;
+  // Snapshot the payout scale so mid-spin RTP slider changes never affect
+  // the in-flight spin or free-spin comparisons.
+  activeWinScale = liveWinScale();
   clearWinVisuals();
   hideWinPopup();
   updateMeters();
@@ -811,31 +827,40 @@ async function doSpin() {
   $('#startBtn').classList.add('stop');
   SFX.play('spin');
 
-  if (state.inFreeGame) {
-    await freeSpinRound();                 // scatter sticky respins
-  } else {
-    await animateSpin(null);               // base game or gold bonus spin
-    const result = evaluateGrid();
-    await settleResult(result, goldSpinNow);
-  }
+  let ok = false;
+  try {
+    if (state.inFreeGame) {
+      await freeSpinRound();                 // scatter sticky respins
+    } else {
+      await animateSpin(null);               // base game or gold bonus spin
+      const result = evaluateGrid();
+      await settleResult(result, goldSpinNow);
+    }
 
-  if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
+    if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
 
-  // A base-game autoplay spin consumes one of the remaining count.
-  if (!freeMode && state.auto && Number.isFinite(state.autoRemaining)) {
-    state.autoRemaining = Math.max(0, state.autoRemaining - 1);
-  }
-  // Stop autoplay on a big base-game win if requested.
-  if (!freeMode && state.auto && state.autoStopBig && state.lastWin >= totalBet() * 20) {
+    // A base-game autoplay spin consumes one of the remaining count.
+    if (!freeMode && state.auto && Number.isFinite(state.autoRemaining)) {
+      state.autoRemaining = Math.max(0, state.autoRemaining - 1);
+    }
+    // Stop autoplay on a big base-game win if requested.
+    if (!freeMode && state.auto && state.autoStopBig && state.lastWin >= totalBet() * 20) {
+      stopAutoplay();
+    }
+    ok = true;
+  } catch (err) {
+    console.error('spin error', err);       // never leave the game frozen
     stopAutoplay();
+  } finally {
+    activeWinScale = null;
+    state.spinning = false;
+    $('#startBtn').textContent = 'START';
+    $('#startBtn').classList.remove('stop');
+    setControlsEnabled(true);
+    updateMeters();
+    saveGame();
   }
-
-  state.spinning = false;
-  $('#startBtn').textContent = 'START';
-  $('#startBtn').classList.remove('stop');
-  setControlsEnabled(true);
-  updateMeters();
-  saveGame();
+  if (!ok) return;
 
   // Continue free game / gold bonus / autoplay chains.
   if (state.inFreeGame && state.freeSpins > 0) {
@@ -1013,7 +1038,7 @@ function changeBet(dir) {
 }
 
 function maxBet() {
-  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  if (state.spinning || state.inFreeGame || state.inGoldGame || state.auto) return;
   state.betIndex = BET_STEPS.length - 1;
   updateMeters();
   saveGame();
@@ -1189,6 +1214,7 @@ function init() {
   $('#startBtn').addEventListener('click', () => {
     SFX.resume();
     if (state.auto) { stopAutoplay(); return; }
+    if (state.inFreeGame || state.inGoldGame) return;  // bonus drives itself
     doSpin();
   });
   $('#betMinus').addEventListener('click', () => changeBet(-1));
@@ -1252,12 +1278,15 @@ function init() {
     if (e.target.id === 'gambleModal' && !gambleBusy) gambleCollect();
   });
 
-  // Keyboard: space to spin
+  // Keyboard: space to spin (ignored while any modal is open, mid-spin,
+  // during a bonus, or during autoplay — and it never hijacks form inputs).
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-      e.preventDefault();
-      if (!state.spinning && $('#gambleModal').classList.contains('hidden')) doSpin();
-    }
+    if (e.code !== 'Space') return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (/^(INPUT|BUTTON|TEXTAREA|SELECT)$/.test(tag)) return;
+    if (document.querySelector('.modal:not(.hidden)')) return;
+    e.preventDefault();
+    if (!state.spinning && !state.auto && !state.inFreeGame && !state.inGoldGame) doSpin();
   });
 }
 
