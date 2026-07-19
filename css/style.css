@@ -1063,4 +1063,95 @@ body::after {
   body:not(.ls-off) .panel .footer { margin-top: auto; }
 }
 
+/* ---------------- Engagement: infobar (level / jackpot / combo) --------- */
+.infobar {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin: 4px 0 8px;
+  flex-wrap: wrap;
+}
+.ib-level, .ib-jackpot, .ib-combo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #0a0d14;
+  border: 1px solid #2a2f3a;
+  font-weight: 800;
+  font-size: 13px;
+}
+.ib-level { cursor: pointer; color: #e7d3a0; flex: 0 0 auto; }
+.ib-level:hover { border-color: var(--gold-deep); }
+.ib-lvl { color: var(--gold); white-space: nowrap; }
+.ib-xp { position: relative; width: 70px; height: 8px; border-radius: 5px; background: #05070c; overflow: hidden; box-shadow: inset 0 0 0 1px #2a2f3a; }
+.ib-xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width .4s ease; }
+.ib-jackpot {
+  flex: 1 1 auto;
+  justify-content: space-between;
+  border-color: var(--gold-deep);
+  background: linear-gradient(90deg, #1a1405, #241a06);
+}
+.ib-jp-label { color: var(--gold); letter-spacing: .04em; }
+.ib-jp-val { color: #fff3cf; font-family: "Courier New", monospace; font-weight: 900; text-shadow: 0 0 8px rgba(246,196,69,.5); }
+.ib-combo {
+  flex: 0 0 auto;
+  color: #ffd9a0;
+  border-color: #7a3010;
+  background: linear-gradient(90deg, #2a1005, #3a1608);
+  animation: combo-pulse 1s ease-in-out infinite;
+}
+@keyframes combo-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,120,40,.0); } 50% { box-shadow: 0 0 12px 2px rgba(255,120,40,.45); } }
+
+/* ---------------- Missions modal --------------------------------------- */
+.mission-list { list-style: none; padding: 0; margin: 8px 0 0; text-align: left; }
+.mission-row {
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #0a0d14;
+  border: 1px solid #2a2f3a;
+  margin-bottom: 8px;
+}
+.mission-row.done { border-color: var(--gold-deep); background: #14140a; }
+.mr-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mr-label { color: #e7d3a0; font-weight: 700; }
+.mr-reward { color: var(--gold); font-weight: 900; white-space: nowrap; }
+.mr-bar { position: relative; height: 7px; border-radius: 5px; background: #05070c; overflow: hidden; margin: 6px 0 3px; box-shadow: inset 0 0 0 1px #2a2f3a; }
+.mr-bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); }
+.mission-row.done .mr-bar i { background: linear-gradient(90deg, #4dff77, #2ecc71); }
+.mr-prog { font-size: 11px; color: #9aa3b2; text-align: right; }
+
+/* ---------------- Statistics modal ------------------------------------- */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.stat-cell {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px; border-radius: 10px;
+  background: #0a0d14; border: 1px solid #2a2f3a;
+}
+.sc-label { font-size: 11px; color: #9aa3b2; text-transform: uppercase; letter-spacing: .03em; }
+.sc-value { font-size: 18px; font-weight: 900; color: var(--gold); font-family: "Courier New", monospace; }
+
+/* ---------------- Toast (level up / mission) --------------------------- */
+.toast {
+  position: fixed;
+  left: 50%; bottom: 24px;
+  transform: translate(-50%, 20px);
+  max-width: 90vw;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2a1e06, #191203);
+  border: 2px solid var(--gold);
+  color: #fff3cf;
+  font-weight: 800;
+  font-size: 15px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 18px rgba(246,196,69,.35);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 60;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
 .hidden { display: none !important; }

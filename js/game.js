@@ -136,15 +136,52 @@ function wildWeightFor(rtp) {
   const i = Math.max(0, Math.min(WILD_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
   return WILD_TABLE[i];
 }
-/* Effective wild weight for the current mode: the base slider RTP normally,
- * the richer BONUS_RTP during the scatter free game, and an extra ×4 during
- * the signature "wild spins" gold bonus. */
+/* COMBO (win-streak) multiplier — base game only. Each consecutive winning base
+ * spin raises the multiplier; a non-winning spin resets it. To keep the base
+ * RTP honest (the combo would otherwise inflate it) the base wild weight is
+ * scaled down by BASE_WILD_COMBO_COMP — calibrated by Monte Carlo. */
+const COMBO_MULT = [1, 1.25, 1.5, 1.75, 2];
+const comboMultFor = (streak) => COMBO_MULT[Math.min(Math.max(0, streak), COMBO_MULT.length - 1)];
+const BASE_WILD_COMBO_COMP = 0.89;
+/* EXPANDING WILD lives in the free game: a landed wild fills its whole reel.
+ * That makes wilds very powerful, so the free-game wild weight is retuned
+ * (much lower) to keep the free contribution ~in line with before. */
+const FREE_WILD_WEIGHT = 80;
+/* Effective wild weight for the current mode: the (combo-compensated) base
+ * slider RTP normally, a fixed lower weight during the expanding-wild free
+ * game, and an extra ×4 during the signature "wild spins" gold bonus (the gold
+ * bonus does NOT use the combo, so its weight is left uncompensated). */
 function effectiveWildWeight() {
   if (state.inGoldGame) return wildWeightFor(state.rtp) * 4;
-  if (state.inFreeGame) return wildWeightFor(BONUS_RTP);
-  return wildWeightFor(state.rtp);
+  if (state.inFreeGame) return FREE_WILD_WEIGHT;
+  return Math.round(wildWeightFor(state.rtp) * BASE_WILD_COMBO_COMP);
 }
 function wildWeight() { return activeWild != null ? activeWild : effectiveWildWeight(); }
+
+/* Progressive jackpot: a pool that grows a little on every paid base spin and
+ * pays out in full on a rare random hit, then resets to the seed. It is
+ * house-funded (comes out of the house edge) so the core slot RTP is unchanged.
+ * XP/level and missions are engagement rewards layered on top. */
+const JACKPOT_SEED = 500;         // pool starts (and resets) here
+const JACKPOT_RATE = 0.01;        // 1% of each total bet feeds the pool
+const JACKPOT_CHANCE = 1 / 600;   // avg trigger frequency per paid base spin
+const XP_PER_SPIN = 1;            // XP earned per base spin
+const XP_PER_WIN = 2;             // extra XP on a winning base spin
+const xpForLevel = (l) => 40 + (l - 1) * 25;   // XP needed to advance FROM level l
+
+/* Missions (achievements): one-time goals that auto-pay a credit reward when
+ * reached. `val()` reads the live progress from stats / counters. */
+const MISSIONS = [
+  { id: 'm_spins',  label: 'Pörgess 50-szer',                 goal: 50,  reward: 25, val: () => state.stats.spins },
+  { id: 'm_won',    label: 'Nyerj összesen 500 €-t',          goal: 500, reward: 50, val: () => Math.floor(state.stats.won) },
+  { id: 'm_streak', label: 'Érj el 5-ös nyerő sorozatot',     goal: 5,   reward: 40, val: () => state.stats.bestStreak },
+  { id: 'm_free',   label: 'Indíts egy ingyenes játékot',     goal: 1,   reward: 50, val: () => state.counters.free },
+  { id: 'm_gold',   label: 'Indíts egy arany bónuszt',        goal: 1,   reward: 50, val: () => state.counters.gold },
+  { id: 'm_gamble', label: 'Nyerj 3 duplázást',               goal: 3,   reward: 40, val: () => state.counters.gambleWin },
+  { id: 'm_big',    label: 'Nyerj 20× tétet egy pörgetésen',  goal: 1,   reward: 60, val: () => state.counters.big },
+  { id: 'm_jackpot',label: 'Üsd meg a jackpotot',             goal: 1,   reward: 80, val: () => state.counters.jackpot },
+  { id: 'm_level',  label: 'Érd el a 5. szintet',             goal: 5,   reward: 75, val: () => state.level },
+];
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -172,6 +209,13 @@ const state = {
   deposited: START_CREDIT,// total credits ever put in (initial + top-ups)
   withdrawn: 0,           // total credits ever taken out (cashed out)
   deposits: [],           // cash-flow log (+ deposits / − withdrawals) for the panel
+  // --- engagement features ---
+  combo: 0,               // current base-game win streak (in-memory, per session)
+  stats: { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 },
+  xp: 0, level: 1,        // XP / level progression
+  counters: { free: 0, gold: 0, gambleWin: 0, big: 0, jackpot: 0 }, // mission progress
+  missionsDone: {},       // mission id -> true once completed + paid
+  jackpot: JACKPOT_SEED,  // progressive jackpot pool (persisted, grows over time)
 };
 
 const TOPUP_AMOUNT = 50;       // credit added by the top-up button
@@ -691,6 +735,186 @@ function submitScore() {
   renderBoard();
 }
 
+/* --------------------------- Engagement layer --------------------------- */
+/* Combo multiplier, XP/levels, missions and the progressive jackpot — layered
+ * on top of the core slot. Only the combo touches per-spin math (offset by the
+ * calibrated base wild weight); the rest are house-funded rewards. */
+
+/* Scale the base win by the current streak multiplier, then advance/reset the
+ * streak. Call once per settled BASE spin (never in free/gold). */
+function applyCombo(result) {
+  const mult = comboMultFor(state.combo);
+  if (result.totalWin > 0) {
+    if (mult > 1) {
+      result.comboMult = mult;
+      let t = 0;
+      for (const lw of result.lineWins) { lw.win = round2(lw.win * mult); t = round2(t + lw.win); }
+      result.totalWin = t;
+    }
+    state.combo += 1;
+  } else {
+    state.combo = 0;
+  }
+  if (state.combo > state.stats.bestStreak) state.stats.bestStreak = state.combo;
+  updateComboMeter();
+}
+
+function updateComboMeter() {
+  const chip = $('#comboChip');
+  if (!chip) return;
+  const next = comboMultFor(state.combo);        // multiplier the NEXT win will earn
+  const active = state.combo > 0 && next > 1;
+  chip.classList.toggle('hidden', !active);
+  const v = $('#comboVal');
+  if (v) v.textContent = `🔥 ${state.combo}× · ×${next}`;
+}
+
+/* Expanding wild: in the free game a landed wild fills its entire reel. Make it
+ * real in the grid so evaluation, rendering and sticky respins all follow. */
+function expandFreeWilds() {
+  if (!state.inFreeGame) return;
+  for (let c = 0; c < COLS; c++) {
+    if (!state.grid[c].includes('wild')) continue;
+    for (let r = 0; r < ROWS; r++) {
+      if (state.grid[c][r] !== 'wild') {
+        state.grid[c][r] = 'wild';
+        delete state.goldValues[c + ',' + r];
+        renderCell(c, r);            // repaint only the newly-expanded cell
+        cellEls[c][r].classList.add('land');
+      }
+    }
+  }
+}
+
+/* Record a settled base spin: stats, XP and jackpot growth. */
+function recordBaseSpin(staked, win) {
+  const s = state.stats;
+  s.spins += 1;
+  s.wagered = round2(s.wagered + staked);
+  s.won = round2(s.won + win);
+  if (win > s.biggest) s.biggest = round2(win);
+  if (staked > 0 && win >= staked * 20) state.counters.big += 1;
+  addXp(XP_PER_SPIN + (win > 0 ? XP_PER_WIN : 0));
+  state.jackpot = round2(state.jackpot + staked * JACKPOT_RATE);
+  updateJackpot();
+  checkMissions();
+}
+
+/* Rare progressive-jackpot hit on a paid base spin. Returns true if it hit. */
+async function maybeHitJackpot() {
+  if (state.jackpot <= JACKPOT_SEED) return false;
+  if (Math.random() >= JACKPOT_CHANCE) return false;
+  const won = round2(state.jackpot);
+  state.jackpot = JACKPOT_SEED;
+  state.credit = round2(state.credit + won);
+  state.lastWin = won;
+  state.counters.jackpot += 1;
+  updateJackpot();
+  updateMeters();
+  saveGame();
+  SFX.play('jackpot');
+  showWinPopup(`💎 JACKPOT!  ${fmt(won)} €`);
+  await bigWinCelebration(won);
+  hideWinPopup();
+  checkMissions();
+  return true;
+}
+
+function addXp(n) {
+  state.xp += n;
+  while (state.xp >= xpForLevel(state.level)) {
+    state.xp -= xpForLevel(state.level);
+    state.level += 1;
+    const reward = state.level * 10;
+    state.credit = round2(state.credit + reward);
+    SFX.play('levelup');
+    flashToast(`⭐ SZINT ${state.level}! +${fmt(reward)} €`);
+    checkMissions();
+  }
+  updateLevelBar();
+}
+
+function updateLevelBar() {
+  const n = $('#lvlNum'); if (n) n.textContent = state.level;
+  const fill = $('#xpFill');
+  if (fill) fill.style.width = Math.min(100, Math.round(state.xp / xpForLevel(state.level) * 100)) + '%';
+}
+
+function updateJackpot() {
+  const v = $('#jackpotVal'); if (v) v.textContent = fmt(state.jackpot) + ' €';
+}
+
+/* Bump a mission counter and re-check completion. */
+function bumpCounter(key, by) {
+  if (state.counters[key] == null) state.counters[key] = 0;
+  state.counters[key] += (by || 1);
+  checkMissions();
+}
+
+/* Check every mission; auto-pay newly completed ones. */
+function checkMissions() {
+  let changed = false;
+  for (const m of MISSIONS) {
+    if (state.missionsDone[m.id]) continue;
+    if (m.val() >= m.goal) {
+      state.missionsDone[m.id] = true;
+      state.credit = round2(state.credit + m.reward);
+      SFX.play('mission');
+      flashToast(`🎯 KÜLDETÉS KÉSZ! ${m.label} +${fmt(m.reward)} €`);
+      changed = true;
+    }
+  }
+  if (changed) { updateMeters(); saveGame(); renderMissions(); }
+}
+
+/* A brief, non-blocking toast (its own element, never fights the win popup). */
+let toastTimer = null;
+function flashToast(text) {
+  const el = $('#toast'); if (!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2100);
+}
+
+function renderMissions() {
+  const list = $('#missionList'); if (!list) return;
+  list.innerHTML = MISSIONS.map((m) => {
+    const cur = Math.min(m.val(), m.goal);
+    const done = !!state.missionsDone[m.id];
+    const pct = Math.round(cur / m.goal * 100);
+    return `<li class="mission-row${done ? ' done' : ''}">`
+      + `<div class="mr-top"><span class="mr-label">${done ? '✅ ' : ''}${escapeHtml(m.label)}</span>`
+      + `<span class="mr-reward">+${fmt(m.reward)} €</span></div>`
+      + `<div class="mr-bar"><i style="width:${pct}%"></i></div>`
+      + `<div class="mr-prog">${cur} / ${m.goal}</div></li>`;
+  }).join('');
+  const done = MISSIONS.filter((m) => state.missionsDone[m.id]).length;
+  const sub = $('#missionSub'); if (sub) sub.textContent = `${done} / ${MISSIONS.length} teljesítve`;
+}
+
+function openMissions() { renderMissions(); $('#missionModal').classList.remove('hidden'); }
+
+function renderStats() {
+  const s = state.stats;
+  const rtp = s.wagered > 0 ? (s.won / s.wagered * 100) : 0;
+  const set = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+  set('#stSpins', s.spins);
+  set('#stWagered', fmt(s.wagered) + ' €');
+  set('#stWon', fmt(s.won) + ' €');
+  set('#stBiggest', fmt(s.biggest) + ' €');
+  set('#stStreak', s.bestStreak);
+  set('#stRtp', s.spins ? rtp.toFixed(1) + '%' : '—');
+  set('#stLevel', state.level);
+  set('#stJackpots', state.counters.jackpot);
+}
+
+function openStats() { renderStats(); $('#statsModal').classList.remove('hidden'); }
+
+function updateEngagementUI() {
+  updateLevelBar(); updateJackpot(); updateComboMeter(); renderMissions();
+}
+
 /* ------------------------------- Restart -------------------------------- */
 
 function restartGame() {
@@ -706,8 +930,16 @@ function restartGame() {
   state.betIndex = 0;
   state.lastWin = 0;
   state.bonusWin = 0;
+  // Reset the engagement layer too (keeps the leaderboard, resets the rest).
+  state.combo = 0;
+  state.stats = { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 };
+  state.xp = 0; state.level = 1;
+  state.counters = { free: 0, gold: 0, gambleWin: 0, big: 0, jackpot: 0 };
+  state.missionsDone = {};
+  state.jackpot = JACKPOT_SEED;
   saveGame();
   updateMeters();
+  updateLevelBar(); updateJackpot(); updateComboMeter(); renderMissions();
   SFX.play('click');
   showWinPopup('ÚJRAINDÍTVA');
   setTimeout(hideWinPopup, 1200);
@@ -744,6 +976,9 @@ function saveGame() {
       deposited: state.deposited, withdrawn: state.withdrawn,
       deposits: state.deposits.slice(-40), gambleNet: state.gambleNet,
       gambleHistory: state.gambleHistory.slice(0, 10),
+      stats: state.stats, xp: state.xp, level: state.level,
+      counters: state.counters, missionsDone: state.missionsDone,
+      jackpot: state.jackpot,
     }));
   } catch (e) { /* ignore */ }
 }
@@ -767,6 +1002,23 @@ function loadGame() {
           .filter((c) => c && typeof c.rank === 'string' && typeof c.s === 'string')
           .slice(0, 10);
       }
+      // Engagement layer.
+      if (s.stats && typeof s.stats === 'object') {
+        const d = state.stats;
+        state.stats = {
+          spins: +s.stats.spins || 0, wagered: round2(+s.stats.wagered || 0),
+          won: round2(+s.stats.won || 0), biggest: round2(+s.stats.biggest || 0),
+          bestStreak: +s.stats.bestStreak || 0,
+        };
+        void d;
+      }
+      if (Number.isFinite(s.xp) && s.xp >= 0) state.xp = s.xp;
+      if (Number.isInteger(s.level) && s.level >= 1) state.level = s.level;
+      if (s.counters && typeof s.counters === 'object') {
+        state.counters = Object.assign({ free: 0, gold: 0, gambleWin: 0, big: 0, jackpot: 0 }, s.counters);
+      }
+      if (s.missionsDone && typeof s.missionsDone === 'object') state.missionsDone = s.missionsDone;
+      if (Number.isFinite(s.jackpot) && s.jackpot >= JACKPOT_SEED) state.jackpot = round2(s.jackpot);
     }
   } catch (e) { /* ignore */ }
 }
@@ -1119,12 +1371,17 @@ async function doSpin() {
     } else {
       await animateSpin(null);               // base game or gold bonus spin
       const result = evaluateGrid();
+      if (!goldSpinNow) applyCombo(result);  // win-streak multiplier (base game only)
       // If autoplay is set to stop on a big win and this spin is one, stop it
       // now and let the gamble be offered on this final (stopping) spin.
       const bigStop = !goldSpinNow && state.auto && state.autoStopBig
         && result.totalWin >= totalBet() * 20;
       if (bigStop) stopAutoplay();
       await settleResult(result, goldSpinNow, wasAuto && !bigStop);
+      if (!goldSpinNow) {
+        recordBaseSpin(totalBet(), result.totalWin);   // stats, XP, jackpot growth, missions
+        await maybeHitJackpot();                        // rare progressive-jackpot hit
+      }
     }
 
     if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
@@ -1199,7 +1456,8 @@ async function triggerGoldGame(result) {
     const [c, r] = p.split(',').map(Number);
     cellEls[c][r].classList.add('win-cell');
   });
-  if (!state.inGoldGame) state.bonusWin = 0;   // start a fresh bonus accumulator
+  const firstGold = !state.inGoldGame;
+  if (firstGold) { state.bonusWin = 0; bumpCounter('gold'); }   // fresh accumulator + mission
   state.goldSpins += GOLD_BONUS_SPINS;
   state.inGoldGame = true;
   SFX.play('freespins');
@@ -1223,6 +1481,9 @@ function finishBonus(label) {
   if (total > 0) {
     state.credit = round2(state.credit + total);   // pay the bonus in one lump at the end
     state.lastWin = total;
+    state.stats.won = round2(state.stats.won + total);   // bonus wins count in the stats
+    if (total > state.stats.biggest) state.stats.biggest = total;
+    checkMissions();
   }
   updateMeters();
   saveGame();
@@ -1246,7 +1507,7 @@ async function triggerFreeGames(result) {
     cellEls[c][r].classList.add('win-cell');
   });
   const first = !state.inFreeGame;
-  if (first) state.bonusWin = 0;               // start a fresh bonus accumulator
+  if (first) { state.bonusWin = 0; bumpCounter('free'); }   // fresh accumulator + mission
   state.freeSpins += FREE_SPINS_AWARD;
   SFX.play('freespins');
   showWinPopup(`🏚️ ${FREE_SPINS_AWARD} INGYENES JÁTÉK!`);
@@ -1281,14 +1542,14 @@ async function freeSpinRound() {
   const cloneGrid = () => state.grid.map((col) => col.slice());
 
   await animateSpin(null);
+  expandFreeWilds();                  // expanding wild: a landed wild fills its reel
   let result = evaluateGrid();
   let bestWin = result.totalWin;
   let bestGrid = cloneGrid();
   showWinLines(result);
   await sleep(state.turbo ? 200 : 800);
 
-  // Gold sticks during the scatter free game (keeps its multiplier).
-  let held = new Set([...result.positions, ...result.goldPositions]);
+  let held = new Set([...result.positions]);
   let respins = 0;
 
   while (held.size > 0 && held.size < COLS * ROWS && respins < MAX_STICKY_RESPINS) {
@@ -1301,8 +1562,8 @@ async function freeSpinRound() {
     await sleep(state.turbo ? 150 : 500);
 
     await animateSpin(held);
+    expandFreeWilds();               // expanding wild on respins too
     const next = evaluateGrid();
-    next.goldPositions.forEach((p) => held.add(p)); // any new gold also sticks
 
     if (next.totalWin > bestWin) {
       bestWin = next.totalWin;
@@ -1501,6 +1762,7 @@ async function gambleGuess(choice) {
     state.lastWin = state.gambleAmount;
     state.gambleNet = round2(state.gambleNet + gain);      // +/- statistics
     gambleRounds++;
+    bumpCounter('gambleWin');                              // mission progress
     updateGambleUI();
     updateMeters();
     SFX.play('gambleWin');
@@ -1577,6 +1839,8 @@ function init() {
   buildBoard();
   buildPaytable();
   updateMeters();
+  updateEngagementUI();   // level bar, jackpot, combo meter, missions
+  checkMissions();        // in case a save already met some goals
 
   // Load any bitmap art from images/, then re-render so it replaces the SVG.
   probeImages().then(() => { renderGrid(); buildPaytable(); });
@@ -1650,6 +1914,38 @@ function init() {
     try { localStorage.setItem('hd_turbo', state.turbo ? '1' : '0'); } catch (e) { /* ignore */ }
   });
 
+  // Missions (küldetések) modal.
+  const missionsBtn = $('#missionsBtn');
+  if (missionsBtn) missionsBtn.addEventListener('click', () => { SFX.resume(); openMissions(); });
+  const missionClose = $('#missionClose');
+  if (missionClose) missionClose.addEventListener('click', () => $('#missionModal').classList.add('hidden'));
+  const missionModal = $('#missionModal');
+  if (missionModal) missionModal.addEventListener('click', (e) => { if (e.target.id === 'missionModal') missionModal.classList.add('hidden'); });
+  const levelChip = $('#levelChip');
+  if (levelChip) levelChip.addEventListener('click', () => { SFX.resume(); openMissions(); });
+
+  // Statistics (statisztika) modal.
+  const statsBtn = $('#statsBtn');
+  if (statsBtn) statsBtn.addEventListener('click', () => { SFX.resume(); openStats(); });
+  const statsClose = $('#statsClose');
+  if (statsClose) statsClose.addEventListener('click', () => $('#statsModal').classList.add('hidden'));
+  const statsModal = $('#statsModal');
+  if (statsModal) statsModal.addEventListener('click', (e) => { if (e.target.id === 'statsModal') statsModal.classList.add('hidden'); });
+
+  // Background music toggle.
+  const musicBtn = $('#musicBtn');
+  if (musicBtn && SFX.toggleMusic) {
+    const savedMusic = (() => { try { return localStorage.getItem('hd_music') === '1'; } catch (e) { return false; } })();
+    if (savedMusic) { SFX.resume(); SFX.startMusic && SFX.startMusic(); }
+    musicBtn.classList.toggle('active', savedMusic);
+    musicBtn.addEventListener('click', () => {
+      SFX.resume();
+      const on = SFX.toggleMusic();
+      musicBtn.classList.toggle('active', on);
+      try { localStorage.setItem('hd_music', on ? '1' : '0'); } catch (e) { /* ignore */ }
+    });
+  }
+
   // Top-up and bonus buy.
   $('#topupBtn').addEventListener('click', () => { SFX.resume(); topUp(); });
   $('#withdrawBtn').addEventListener('click', () => { SFX.resume(); withdraw(); });
@@ -1705,4 +2001,6 @@ document.addEventListener('DOMContentLoaded', init);
 
 /* Debug / test hook — lets the browser console (and automated tests) inspect
  * and drive the game state. Harmless in normal play. */
-window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard };
+window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
+  // engagement features
+  MISSIONS, COMBO_MULT, comboMultFor, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateComboMeter, updateLevelBar, updateJackpot };

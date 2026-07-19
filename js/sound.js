@@ -68,7 +68,47 @@
     gambleLose() { tone(300, ctx.currentTime, 0.45, 'sawtooth', 0.18, 110); },
     freespins() { arp([523, 659, 784, 1046, 1318], 0.12, 0.35, 'sine', 0.22); },
     anticipation() { tone(300, ctx.currentTime, 0.7, 'sawtooth', 0.12, 950); },
+    levelup() { arp([659, 784, 988, 1318, 1568], 0.08, 0.26, 'triangle', 0.20); },
+    mission() { arp([784, 1046, 1318], 0.07, 0.20, 'square', 0.14); },
+    jackpot() { arp([523, 659, 784, 1046, 1318, 1568, 2093, 2637], 0.08, 0.40, 'triangle', 0.24); },
   };
+
+  /* ---- Background music: a gentle, looping synth pad + melody (toggleable,
+   *      independent of the SFX mute). No external files. ---- */
+  const music = { on: false, timer: null, gain: null, step: 0 };
+  const BASS = [130.81, 146.83, 164.81, 98.00];                 // C3 D3 E3 G2
+  const MEL = [523.25, 587.33, 659.25, 783.99, 659.25, 587.33]; // C5 D5 E5 G5 E5 D5
+  function musicTone(freq, t0, dur, type, gain) {
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(music.gain);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function musicTick() {
+    if (!music.on || !ctx) return;
+    const t = ctx.currentTime;
+    const i = music.step;
+    const root = BASS[i % BASS.length];
+    musicTone(root, t, 0.9, 'triangle', 0.045);       // soft pad root
+    musicTone(root * 1.5, t, 0.9, 'sine', 0.028);      // fifth
+    musicTone(MEL[i % MEL.length], t, 0.34, 'sine', 0.04); // melody
+    music.step++;
+    music.timer = setTimeout(musicTick, 500);
+  }
+  function startMusic() {
+    if (music.on) return;
+    if (!ensure()) return;
+    if (!music.gain) { music.gain = ctx.createGain(); music.gain.gain.value = 0.6; music.gain.connect(master); }
+    music.on = true;
+    musicTick();
+  }
+  function stopMusic() {
+    music.on = false;
+    if (music.timer) { clearTimeout(music.timer); music.timer = null; }
+  }
 
   window.SFX = {
     play(name) {
@@ -80,5 +120,9 @@
     setMuted(m) { st.muted = !!m; },
     get muted() { return st.muted; },
     resume() { try { ensure(); } catch (e) { /* ignore */ } },
+    startMusic() { try { startMusic(); } catch (e) { /* ignore */ } },
+    stopMusic() { try { stopMusic(); } catch (e) { /* ignore */ } },
+    toggleMusic() { try { if (music.on) stopMusic(); else startMusic(); } catch (e) { /* ignore */ } return music.on; },
+    get musicOn() { return music.on; },
   };
 })();
