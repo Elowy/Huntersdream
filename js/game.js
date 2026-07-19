@@ -132,10 +132,17 @@ const state = {
   goldSpins: 0,           // remaining gold-bonus spins
   inGoldGame: false,
   auto: false,
+  autoRemaining: 0,       // remaining autoplay spins (Infinity for endless)
+  autoStopBonus: true,    // stop autoplay when a bonus triggers
+  autoStopBig: false,     // stop autoplay on a big win
   lastWin: 0,
   gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
   rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
 };
+
+const TOPUP_AMOUNT = 10;       // credit added by the top-up button
+const BUY_BONUS_COST = 50;     // free-spin bonus buy costs 50x total bet
+const SFX = window.SFX || { play() {}, toggleMute() { return false; }, setMuted() {}, get muted() { return false; }, resume() {} };
 
 const GAMBLE_MAX_ROUNDS = 5;   // safety cap on consecutive doublings
 const GAMBLE_MAX_WIN = 5000;   // and on the amount
@@ -438,6 +445,7 @@ async function presentWins(result, { fast } = {}) {
     state.lastWin = round2(state.lastWin + lw.win);
     state.credit = round2(state.credit + lw.win);
     updateMeters();
+    SFX.play('win');
     const wildTag = lw.wilds > 0 ? `  🔥×${lw.multiplier}` : '';
     showWinPopup(`${SYMBOLS[lw.symbol].name} ${lw.count}×  ${fmt(lw.win)} €${wildTag}`);
     await sleep(per);
@@ -479,12 +487,201 @@ function updateMeters() {
   const title = $('#freeBanner .fb-title');
   if (title) title.textContent = gold ? 'ARANY BÓNUSZ' : 'INGYENES JÁTÉKOK';
   $('#freeSpinsLeft').textContent = gold ? state.goldSpins : state.freeSpins;
+  const buyCost = $('#buyCost');
+  if (buyCost) buyCost.textContent = fmt(buyBonusCost());
 }
 
 function setControlsEnabled(enabled) {
-  ['#betMinus', '#betPlus', '#maxBet'].forEach((s) => {
-    $(s).disabled = !enabled || state.inFreeGame || state.inGoldGame;
+  const busy = !enabled || state.inFreeGame || state.inGoldGame;
+  ['#betMinus', '#betPlus', '#maxBet'].forEach((s) => { $(s).disabled = busy; });
+  ['#buyBonusBtn', '#topupBtn'].forEach((s) => { const el = $(s); if (el) el.disabled = busy; });
+}
+
+/* ------------------------------ Persistence ----------------------------- */
+
+function saveGame() {
+  try {
+    localStorage.setItem('hd_save', JSON.stringify({ credit: state.credit, betIndex: state.betIndex }));
+  } catch (e) { /* ignore */ }
+}
+
+function loadGame() {
+  try {
+    const s = JSON.parse(localStorage.getItem('hd_save'));
+    if (s) {
+      if (typeof s.credit === 'number' && s.credit >= 0) state.credit = round2(s.credit);
+      if (Number.isInteger(s.betIndex) && s.betIndex >= 0 && s.betIndex < BET_STEPS.length) {
+        state.betIndex = s.betIndex;
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
+/* ------------------------- Top-up & bonus buy --------------------------- */
+
+function topUp() {
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  state.credit = round2(state.credit + TOPUP_AMOUNT);
+  SFX.play('coin');
+  updateMeters();
+  saveGame();
+}
+
+function buyBonusCost() { return round2(totalBet() * BUY_BONUS_COST); }
+
+async function buyBonus() {
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  const cost = buyBonusCost();
+  if (state.credit < cost) {
+    showWinPopup('NINCS ELÉG KREDIT');
+    SFX.play('gambleLose');
+    await sleep(1200);
+    hideWinPopup();
+    return;
+  }
+  clearGamble();
+  state.credit = round2(state.credit - cost);
+  SFX.play('click');
+  updateMeters();
+  saveGame();
+  state.inFreeGame = true;
+  state.freeSpins = FREE_SPINS_AWARD;
+  SFX.play('freespins');
+  showWinPopup(`🏚️ ${FREE_SPINS_AWARD} INGYENES JÁTÉK!`);
+  updateMeters();
+  await sleep(1600);
+  hideWinPopup();
+  doSpin();
+}
+
+/* ------------------------------ Autoplay -------------------------------- */
+
+function openAutoModal() {
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  $('#autoModal').classList.remove('hidden');
+}
+
+function startAutoplay(count) {
+  state.autoRemaining = count === 0 ? Infinity : count;
+  state.auto = true;
+  state.autoStopBonus = $('#autoStopBonus').checked;
+  state.autoStopBig = $('#autoStopBig').checked;
+  $('#autoBtn').classList.add('active');
+  $('#autoModal').classList.add('hidden');
+  if (!state.spinning && !state.inFreeGame && !state.inGoldGame) doSpin();
+}
+
+function stopAutoplay() {
+  state.auto = false;
+  state.autoRemaining = 0;
+  $('#autoBtn').classList.remove('active');
+}
+
+/* Decide whether another autoplay spin should run, and schedule it. */
+function scheduleNext() {
+  if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  if (!state.auto) return;
+  if (state.autoRemaining <= 0 || state.credit < totalBet()) { stopAutoplay(); return; }
+  setTimeout(() => { if (!state.spinning) doSpin(); }, 500);
+}
+
+/* ------------------------------ Win juice ------------------------------- */
+
+const fxCanvas = $('#fxCanvas');
+const fxCtx = fxCanvas ? fxCanvas.getContext('2d') : null;
+let fxParticles = [];
+let fxRunning = false;
+
+function fxResize() {
+  if (!fxCanvas) return;
+  const r = fxCanvas.getBoundingClientRect();
+  fxCanvas.width = r.width;
+  fxCanvas.height = r.height;
+}
+
+function fxTick() {
+  if (!fxCtx) return;
+  fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+  fxParticles = fxParticles.filter((p) => p.life > 0);
+  for (const p of fxParticles) {
+    p.vy += 0.35;              // gravity
+    p.x += p.vx; p.y += p.vy;
+    p.rot += p.vr; p.life--;
+    fxCtx.save();
+    fxCtx.translate(p.x, p.y);
+    fxCtx.rotate(p.rot);
+    fxCtx.globalAlpha = Math.max(0, Math.min(1, p.life / 24));
+    fxCtx.beginPath();
+    fxCtx.ellipse(0, 0, p.r, p.r * 0.7, 0, 0, Math.PI * 2);
+    fxCtx.fillStyle = p.color;
+    fxCtx.fill();
+    fxCtx.strokeStyle = 'rgba(120,80,0,0.6)';
+    fxCtx.lineWidth = 1.5;
+    fxCtx.stroke();
+    fxCtx.restore();
+  }
+  if (fxParticles.length > 0) requestAnimationFrame(fxTick);
+  else fxRunning = false;
+}
+
+function burstCoins(count) {
+  if (!fxCtx) return;
+  fxResize();
+  const cx = fxCanvas.width / 2;
+  const top = fxCanvas.height * 0.28;
+  const colors = ['#ffd23b', '#ffe488', '#f5b420', '#fff2b0'];
+  for (let i = 0; i < count; i++) {
+    fxParticles.push({
+      x: cx + (Math.random() - 0.5) * fxCanvas.width * 0.5,
+      y: top + (Math.random() - 0.5) * 40,
+      vx: (Math.random() - 0.5) * 9,
+      vy: -6 - Math.random() * 7,
+      r: 5 + Math.random() * 5,
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.4,
+      life: 60 + Math.random() * 30,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    });
+  }
+  if (!fxRunning) { fxRunning = true; requestAnimationFrame(fxTick); }
+}
+
+/* Escalating big-win banner with a counting-up amount. */
+function winTier(win) {
+  const bet = totalBet();
+  if (win >= bet * 100) return { title: 'EPIKUS NYEREMÉNY', coins: 90, sound: 'megawin' };
+  if (win >= bet * 50) return { title: 'MEGA NYEREMÉNY', coins: 60, sound: 'megawin' };
+  if (win >= bet * 20) return { title: 'NAGY NYEREMÉNY', coins: 40, sound: 'bigwin' };
+  return null;
+}
+
+async function bigWinCelebration(win) {
+  const tier = winTier(win);
+  if (!tier) return;
+  SFX.play(tier.sound);
+  burstCoins(tier.coins);
+  const banner = $('#bigWinBanner');
+  $('#bwTitle').textContent = tier.title;
+  banner.classList.remove('hidden');
+  banner.style.animation = 'none'; void banner.offsetWidth; banner.style.animation = '';
+
+  // count the amount up
+  const dur = 1100;
+  const start = performance.now ? performance.now() : Date.now();
+  await new Promise((resolve) => {
+    function step() {
+      const now = (performance.now ? performance.now() : Date.now());
+      const t = Math.min(1, (now - start) / dur);
+      const val = win * (1 - Math.pow(1 - t, 3));
+      $('#bwAmount').textContent = fmt(round2(val)) + ' €';
+      if (Math.random() < 0.4) SFX.play('coin');
+      if (t < 1) requestAnimationFrame(step); else resolve();
+    }
+    requestAnimationFrame(step);
   });
+  $('#bwAmount').textContent = fmt(win) + ' €';
+  await sleep(900);
+  banner.classList.add('hidden');
 }
 
 /* --------------------------- Spin animation ----------------------------- */
@@ -513,6 +710,25 @@ async function animateSpin(holdSet) {
 
   // Stop each reel with a short stagger and a landing bounce.
   for (let c = 0; c < COLS; c++) {
+    // Scatter anticipation: if reels 1 & 2 already show 2 scatters, the last
+    // scatter reel (3) teases a slower, highlighted stop.
+    if (c === 3) {
+      let sc = 0;
+      for (const mc of [1, 2]) for (let r = 0; r < ROWS; r++) if (state.grid[mc][r] === 'scatter') sc++;
+      if (sc === 2) {
+        SFX.play('anticipation');
+        for (let r = 0; r < ROWS; r++) cellEls[c][r].classList.add('anticipate');
+        for (let f = 0; f < 10; f++) {
+          for (let r = 0; r < ROWS; r++) {
+            if (holdSet && holdSet.has(c + ',' + r)) continue;
+            cellEls[c][r].querySelector('.sym').innerHTML = artFor(randomSymbol(c));
+          }
+          await sleep(80);
+        }
+        for (let r = 0; r < ROWS; r++) cellEls[c][r].classList.remove('anticipate');
+      }
+    }
+
     spinReelSymbols(c, holdSet);   // at most one scatter per reel
     for (let r = 0; r < ROWS; r++) {
       if (holdSet && holdSet.has(c + ',' + r)) continue;
@@ -523,6 +739,7 @@ async function animateSpin(holdSet) {
       void cell.offsetWidth;      // restart animation
       cell.classList.add('land');
     }
+    SFX.play('reelStop');
     await sleep(150); // stagger reel stop
   }
 
@@ -547,6 +764,7 @@ async function revealGoldMultipliers(holdSet) {
       const el = cellEls[c][r].querySelector('.gold-mult');
       if (el) el.textContent = vals[Math.floor(Math.random() * vals.length)] + '×';
     }
+    SFX.play('goldRoll');
     await sleep(75);
   }
   for (const [c, r] of cells) {
@@ -558,6 +776,7 @@ async function revealGoldMultipliers(holdSet) {
       el.classList.add('reveal');
     }
   }
+  SFX.play('gold');
   await sleep(200);
 }
 
@@ -590,6 +809,7 @@ async function doSpin() {
   setControlsEnabled(false);
   $('#startBtn').textContent = freeMode ? '...' : 'STOP';
   $('#startBtn').classList.add('stop');
+  SFX.play('spin');
 
   if (state.inFreeGame) {
     await freeSpinRound();                 // scatter sticky respins
@@ -601,26 +821,35 @@ async function doSpin() {
 
   if (goldSpinNow) state.goldSpins = Math.max(0, state.goldSpins - 1);
 
+  // A base-game autoplay spin consumes one of the remaining count.
+  if (!freeMode && state.auto && Number.isFinite(state.autoRemaining)) {
+    state.autoRemaining = Math.max(0, state.autoRemaining - 1);
+  }
+  // Stop autoplay on a big base-game win if requested.
+  if (!freeMode && state.auto && state.autoStopBig && state.lastWin >= totalBet() * 20) {
+    stopAutoplay();
+  }
+
   state.spinning = false;
   $('#startBtn').textContent = 'START';
   $('#startBtn').classList.remove('stop');
   setControlsEnabled(true);
   updateMeters();
+  saveGame();
 
   // Continue free game / gold bonus / autoplay chains.
   if (state.inFreeGame && state.freeSpins > 0) {
     await sleep(700); doSpin();
   } else if (state.inFreeGame) {
     endFreeGame();
-    if (state.auto) { await sleep(600); doSpin(); }
+    await sleep(500); scheduleNext();
   } else if (state.inGoldGame && state.goldSpins > 0) {
     await sleep(650); doSpin();
   } else if (state.inGoldGame) {
     endGoldGame();
-    if (state.auto) { await sleep(600); doSpin(); }
-  } else if (state.auto) {
-    if (state.credit >= totalBet()) { await sleep(600); doSpin(); }
-    else toggleAuto(false);
+    await sleep(500); scheduleNext();
+  } else {
+    scheduleNext();
   }
 }
 
@@ -628,14 +857,17 @@ async function doSpin() {
 async function settleResult(result, isFree) {
   if (result.totalWin > 0) {
     await presentWins(result, { fast: state.auto || isFree });
+    if (!isFree) await bigWinCelebration(result.totalWin);
     hideWinPopup();
   }
 
   if (!isFree) {
     // Base game: scatter takes priority, otherwise gold triggers its bonus.
     if (result.scatterCount >= 3) {
+      if (state.auto && state.autoStopBonus) stopAutoplay();
       await triggerFreeGames(result);
     } else if (result.goldCount >= GOLD_TRIGGER) {
+      if (state.auto && state.autoStopBonus) stopAutoplay();
       await triggerGoldGame(result);
     } else if (result.totalWin > 0 && !state.auto) {
       offerGamble(result.totalWin);        // base win -> offer double-or-nothing
@@ -652,6 +884,7 @@ async function triggerGoldGame(result) {
   });
   state.goldSpins += GOLD_BONUS_SPINS;
   state.inGoldGame = true;
+  SFX.play('freespins');
   showWinPopup(`🪙 ${GOLD_BONUS_SPINS} WILD PÖRGETÉS!`);
   updateMeters();
   await sleep(1800);
@@ -678,6 +911,7 @@ async function triggerFreeGames(result) {
   });
   const first = !state.inFreeGame;
   state.freeSpins += FREE_SPINS_AWARD;
+  SFX.play('freespins');
   showWinPopup(`🏚️ ${FREE_SPINS_AWARD} INGYENES JÁTÉK!`);
   await sleep(1800);
   hideWinPopup();
@@ -773,20 +1007,17 @@ async function freeSpinRound() {
 function changeBet(dir) {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   state.betIndex = Math.min(BET_STEPS.length - 1, Math.max(0, state.betIndex + dir));
+  SFX.play('click');
   updateMeters();
+  saveGame();
 }
 
 function maxBet() {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
   state.betIndex = BET_STEPS.length - 1;
   updateMeters();
+  saveGame();
   doSpin();
-}
-
-function toggleAuto(force) {
-  state.auto = force === undefined ? !state.auto : force;
-  $('#autoBtn').classList.toggle('active', state.auto);
-  if (state.auto && !state.spinning && !state.inFreeGame && !state.inGoldGame) doSpin();
 }
 
 /* ------------------------------- RTP slider ----------------------------- */
@@ -869,6 +1100,7 @@ async function gambleChoose(guessRed) {
   const card = $('#gCard');
   card.className = 'gamble-card flip';
   card.innerHTML = '<span>?</span>';
+  SFX.play('cardFlip');
   await sleep(160);
   card.innerHTML = `<span class="${suit.red ? 'red' : 'black'}">${rank} ${suit.s}</span>`;
   card.className = 'gamble-card ' + (suit.red ? 'is-red' : 'is-black');
@@ -880,6 +1112,7 @@ async function gambleChoose(guessRed) {
     gambleRounds++;
     updateGambleUI();
     updateMeters();
+    SFX.play('gambleWin');
     $('#gMsg').textContent = `NYERTÉL!  ${fmt(state.gambleAmount)} €`;
     $('#gMsg').className = 'gamble-msg win';
     await sleep(1100);
@@ -898,16 +1131,20 @@ async function gambleChoose(guessRed) {
     state.gambleAmount = 0;
     state.lastWin = 0;
     updateMeters();
+    saveGame();
+    SFX.play('gambleLose');
     $('#gMsg').textContent = 'VESZTETTÉL';
     $('#gMsg').className = 'gamble-msg lose';
     await sleep(1500);
     clearGamble();
   }
+  saveGame();
 }
 
 function gambleCollect() {
   clearGamble();   // amount already in credit
   updateMeters();
+  saveGame();
 }
 
 /* ------------------------------ Paytable UI ----------------------------- */
@@ -941,6 +1178,7 @@ function buildPaytable() {
 /* ------------------------------- Wiring --------------------------------- */
 
 function init() {
+  loadGame();          // restore saved credit / bet
   buildBoard();
   buildPaytable();
   updateMeters();
@@ -949,13 +1187,17 @@ function init() {
   probeImages().then(() => { renderGrid(); buildPaytable(); });
 
   $('#startBtn').addEventListener('click', () => {
-    if (state.auto) toggleAuto(false);
+    SFX.resume();
+    if (state.auto) { stopAutoplay(); return; }
     doSpin();
   });
   $('#betMinus').addEventListener('click', () => changeBet(-1));
   $('#betPlus').addEventListener('click', () => changeBet(1));
   $('#maxBet').addEventListener('click', maxBet);
-  $('#autoBtn').addEventListener('click', () => toggleAuto());
+  $('#autoBtn').addEventListener('click', () => {
+    SFX.resume();
+    if (state.auto) stopAutoplay(); else openAutoModal();
+  });
 
   $('#rulesBtn').addEventListener('click', () => $('#rulesModal').classList.remove('hidden'));
   $('#rulesClose').addEventListener('click', () => $('#rulesModal').classList.add('hidden'));
@@ -966,6 +1208,40 @@ function init() {
   // RTP / payout balance slider.
   setRtp(loadRtp());
   $('#rtpSlider').addEventListener('input', (e) => setRtp(+e.target.value));
+
+  // Sound mute toggle.
+  const savedMute = (() => { try { return localStorage.getItem('hd_mute') === '1'; } catch (e) { return false; } })();
+  SFX.setMuted(savedMute);
+  $('#muteBtn').textContent = savedMute ? '🔇' : '🔊';
+  $('#muteBtn').addEventListener('click', () => {
+    SFX.resume();
+    const m = SFX.toggleMute();
+    $('#muteBtn').textContent = m ? '🔇' : '🔊';
+    try { localStorage.setItem('hd_mute', m ? '1' : '0'); } catch (e) { /* ignore */ }
+  });
+
+  // Top-up and bonus buy.
+  $('#topupBtn').addEventListener('click', () => { SFX.resume(); topUp(); });
+  $('#buyBonusBtn').addEventListener('click', () => { SFX.resume(); buyBonus(); });
+
+  // Autoplay modal.
+  $('#autoClose').addEventListener('click', () => $('#autoModal').classList.add('hidden'));
+  $('#autoModal').addEventListener('click', (e) => {
+    if (e.target.id === 'autoModal') $('#autoModal').classList.add('hidden');
+  });
+  let autoCount = 10;
+  $('#autoModal').querySelectorAll('.auto-count').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      autoCount = +btn.dataset.n;
+      $('#autoModal').querySelectorAll('.auto-count').forEach((b) => b.classList.remove('sel'));
+      btn.classList.add('sel');
+    });
+  });
+  $('#autoStartBtn').addEventListener('click', () => { SFX.resume(); startAutoplay(autoCount); });
+
+  // Resize the FX canvas with the window.
+  fxResize();
+  window.addEventListener('resize', fxResize);
 
   // Gamble (double-or-nothing) wiring.
   $('#gambleBtn').addEventListener('click', openGamble);
