@@ -136,25 +136,19 @@ function wildWeightFor(rtp) {
   const i = Math.max(0, Math.min(WILD_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
   return WILD_TABLE[i];
 }
-/* COMBO (win-streak) multiplier — base game only. Each consecutive winning base
- * spin raises the multiplier; a non-winning spin resets it. To keep the base
- * RTP honest (the combo would otherwise inflate it) the base wild weight is
- * scaled down by BASE_WILD_COMBO_COMP — calibrated by Monte Carlo. */
-const COMBO_MULT = [1, 1.25, 1.5, 1.75, 2];
-const comboMultFor = (streak) => COMBO_MULT[Math.min(Math.max(0, streak), COMBO_MULT.length - 1)];
-const BASE_WILD_COMBO_COMP = 0.89;
+/* The winning STREAK is tracked for the stats + mission, but it no longer
+ * multiplies the win (removed on request — it was inflating wins). */
 /* EXPANDING WILD lives in the free game: a landed wild fills its whole reel.
  * That makes wilds very powerful, so the free-game wild weight is retuned
  * (much lower) to keep the free contribution ~in line with before. */
 const FREE_WILD_WEIGHT = 80;
-/* Effective wild weight for the current mode: the (combo-compensated) base
- * slider RTP normally, a fixed lower weight during the expanding-wild free
- * game, and an extra ×4 during the signature "wild spins" gold bonus (the gold
- * bonus does NOT use the combo, so its weight is left uncompensated). */
+/* Effective wild weight for the current mode: the base slider RTP normally, a
+ * fixed lower weight during the expanding-wild free game, and an extra ×4
+ * during the signature "wild spins" gold bonus. */
 function effectiveWildWeight() {
   if (state.inGoldGame) return wildWeightFor(state.rtp) * 4;
   if (state.inFreeGame) return FREE_WILD_WEIGHT;
-  return Math.round(wildWeightFor(state.rtp) * BASE_WILD_COMBO_COMP);
+  return wildWeightFor(state.rtp);
 }
 function wildWeight() { return activeWild != null ? activeWild : effectiveWildWeight(); }
 
@@ -743,35 +737,13 @@ function submitScore() {
  * on top of the core slot. Only the combo touches per-spin math (offset by the
  * calibrated base wild weight); the rest are house-funded rewards. */
 
-/* Scale the base win by the current streak multiplier, then advance/reset the
- * streak. Call once per settled BASE spin (never in free/gold). */
+/* Track the winning streak for the stats + mission only — it does NOT multiply
+ * the win (the combo multiplier was removed on request). Call once per settled
+ * BASE spin (never in free/gold). */
 function applyCombo(result) {
-  const mult = comboMultFor(state.combo);
-  if (result.totalWin > 0) {
-    if (mult > 1) {
-      result.comboMult = mult;
-      let t = 0;
-      for (const lw of result.lineWins) { lw.win = round2(lw.win * mult); t = round2(t + lw.win); }
-      result.totalWin = t;
-    }
-    state.combo += 1;
-  } else {
-    state.combo = 0;
-  }
+  if (result.totalWin > 0) state.combo += 1;
+  else state.combo = 0;
   if (state.combo > state.stats.bestStreak) state.stats.bestStreak = state.combo;
-  updateComboMeter();
-}
-
-function updateComboMeter() {
-  const chip = $('#comboChip');
-  if (!chip) return;
-  // The chip is ALWAYS present (fixed slot) so it never reflows the infobar —
-  // only its styling and text change between idle (×1) and an active streak.
-  const next = comboMultFor(state.combo);        // multiplier the NEXT win will earn
-  const active = state.combo > 0 && next > 1;
-  chip.classList.toggle('active', active);
-  const v = $('#comboVal');
-  if (v) v.textContent = active ? `🔥${state.combo}·×${next}` : '🔥×1';
 }
 
 /* Expanding wild: in the free game a landed wild fills its entire reel. Make it
@@ -917,7 +889,7 @@ function renderStats() {
 function openStats() { renderStats(); $('#statsModal').classList.remove('hidden'); }
 
 function updateEngagementUI() {
-  updateLevelBar(); updateJackpot(); updateComboMeter(); renderMissions();
+  updateLevelBar(); updateJackpot(); renderMissions();
 }
 
 /* ------------------------------- Restart -------------------------------- */
@@ -944,7 +916,7 @@ function restartGame() {
   state.jackpot = JACKPOT_SEED;
   saveGame();
   updateMeters();
-  updateLevelBar(); updateJackpot(); updateComboMeter(); renderMissions();
+  updateLevelBar(); updateJackpot(); renderMissions();
   SFX.play('click');
   showWinPopup('ÚJRAINDÍTVA');
   setTimeout(hideWinPopup, 1200);
@@ -2021,5 +1993,5 @@ document.addEventListener('DOMContentLoaded', init);
  * and drive the game state. Harmless in normal play. */
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
-  MISSIONS, COMBO_MULT, comboMultFor, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateComboMeter, updateLevelBar, updateJackpot,
+  MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar, updateJackpot,
   setControlsEnabled, stopAutoplay };
