@@ -627,6 +627,7 @@ function updateHistoryPanel() {
   const net = currentNet();
   const setTxt = (sel, txt) => { const el = $(sel); if (el) el.textContent = txt; };
   setTxt('#hpDeposited', fmt(dep) + ' €');
+  setTxt('#hpWithdrawn', fmt(round2(state.withdrawn)) + ' €');
   setTxt('#hpBalance', fmt(bal) + ' €');
   const n = $('#hpNet');
   if (n) {
@@ -1681,16 +1682,19 @@ const CARD_SUITS = [
   { s: '♠', red: false }, { s: '♣', red: false },
 ];
 
+/* The gamble button is ALWAYS visible; it is only enabled while there is a win
+ * to gamble. Otherwise it sits inactive (disabled) so the panel never reflows. */
 function offerGamble(amount) {
   if (amount <= 0 || state.inFreeGame || state.inGoldGame) { clearGamble(); return; }
   state.gambleAmount = round2(amount);
-  $('#gambleAmt').textContent = fmt(state.gambleAmount);
-  $('#gambleBtn').classList.remove('hidden');
+  const amt = $('#gambleAmt'); if (amt) amt.textContent = ' — ' + fmt(state.gambleAmount) + ' €';
+  const btn = $('#gambleBtn'); if (btn) btn.disabled = false;
 }
 
 function clearGamble() {
   state.gambleAmount = 0;
-  $('#gambleBtn').classList.add('hidden');
+  const amt = $('#gambleAmt'); if (amt) amt.textContent = '';
+  const btn = $('#gambleBtn'); if (btn) btn.disabled = true;   // stays visible, just inactive
   $('#gambleModal').classList.add('hidden');
 }
 
