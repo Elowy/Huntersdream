@@ -131,8 +131,8 @@
 
     <!-- RIGHT column in landscape: the controls panel -->
     <div class="panel">
-    <button class="gamble-btn hidden" id="gambleBtn" type="button">
-      🂠 DUPLÁZÁS — <span id="gambleAmt">0.00</span> €
+    <button class="gamble-btn" id="gambleBtn" type="button" disabled>
+      🂠 DUPLÁZÁS<span id="gambleAmt"></span>
     </button>
 
     <section class="extra-actions">
@@ -155,6 +155,7 @@
     <section class="history-panel" id="historyPanel">
       <div class="hp-grid">
         <div class="hp-cell"><span class="hp-label">BEFIZETVE</span><span class="hp-value" id="hpDeposited">10.00 €</span></div>
+        <div class="hp-cell"><span class="hp-label">KIVÉVE</span><span class="hp-value" id="hpWithdrawn">0.00 €</span></div>
         <div class="hp-cell"><span class="hp-label">EGYENLEG</span><span class="hp-value" id="hpBalance">10.00 €</span></div>
         <div class="hp-cell"><span class="hp-label">EREDMÉNY</span><span class="hp-value net pos" id="hpNet">+0.00 €</span></div>
       </div>
