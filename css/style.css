@@ -1067,7 +1067,7 @@ body::after {
   margin: 4px 0 8px;
   flex-wrap: nowrap;
 }
-.ib-level, .ib-jackpot, .ib-combo {
+.ib-level, .ib-jackpot {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1097,25 +1097,6 @@ body::after {
 .jp-word { display: none; }
 @media (min-width: 560px) { .jp-word { display: inline; } }
 .ib-jp-val { flex: 0 0 auto; white-space: nowrap; color: #fff3cf; font-family: "Courier New", monospace; font-weight: 900; text-shadow: 0 0 8px rgba(246,196,69,.5); }
-/* Combo chip: a FIXED slot that is always present so it never reflows the
- * infobar. Idle = dim/muted; only an active streak lights it up + pulses. */
-.ib-combo {
-  flex: 0 0 auto;
-  min-width: 60px;
-  justify-content: center;
-  white-space: nowrap;
-  color: #6b7280;
-  border-color: #2a2f3a;
-  background: #0a0d14;
-  transition: color .2s ease, border-color .2s ease, background .2s ease;
-}
-.ib-combo.active {
-  color: #ffd9a0;
-  border-color: #7a3010;
-  background: linear-gradient(90deg, #2a1005, #3a1608);
-  animation: combo-pulse 1s ease-in-out infinite;
-}
-@keyframes combo-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,120,40,.0); } 50% { box-shadow: 0 0 12px 2px rgba(255,120,40,.45); } }
 
 /* ---------------- Missions modal --------------------------------------- */
 .mission-list { list-style: none; padding: 0; margin: 8px 0 0; text-align: left; }
