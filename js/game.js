@@ -163,13 +163,7 @@ function effectiveWildWeight() {
 }
 function wildWeight() { return activeWild != null ? activeWild : effectiveWildWeight(); }
 
-/* Progressive jackpot: a pool that grows a little on every paid base spin and
- * pays out in full on a rare random hit, then resets to the seed. It is
- * house-funded (comes out of the house edge) so the core slot RTP is unchanged.
- * XP/level and missions are engagement rewards layered on top. */
-const JACKPOT_SEED = 500;         // pool starts (and resets) here
-const JACKPOT_RATE = 0.01;        // 1% of each total bet feeds the pool
-const JACKPOT_CHANCE = 1 / 600;   // avg trigger frequency per paid base spin
+/* XP/level and missions are engagement rewards layered on top of the base game. */
 const XP_PER_SPIN = 1;            // XP earned per base spin
 const XP_PER_WIN = 2;             // extra XP on a winning base spin
 const xpForLevel = (l) => 40 + (l - 1) * 25;   // XP needed to advance FROM level l
@@ -184,7 +178,6 @@ const MISSIONS = [
   { id: 'm_gold',   label: 'Indíts egy arany bónuszt',        goal: 1,   reward: 50, val: () => state.counters.gold },
   { id: 'm_gamble', label: 'Nyerj 3 duplázást',               goal: 3,   reward: 40, val: () => state.counters.gambleWin },
   { id: 'm_big',    label: 'Nyerj 20× tétet egy pörgetésen',  goal: 1,   reward: 60, val: () => state.counters.big },
-  { id: 'm_jackpot',label: 'Üsd meg a jackpotot',             goal: 1,   reward: 80, val: () => state.counters.jackpot },
   { id: 'm_level',  label: 'Érd el a 5. szintet',             goal: 5,   reward: 75, val: () => state.level },
 ];
 
@@ -219,9 +212,8 @@ const state = {
   combo: 0,               // current base-game win streak (in-memory, per session)
   stats: { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 },
   xp: 0, level: 1,        // XP / level progression
-  counters: { free: 0, gold: 0, gambleWin: 0, big: 0, jackpot: 0 }, // mission progress
+  counters: { free: 0, gold: 0, gambleWin: 0, big: 0 }, // mission progress
   missionsDone: {},       // mission id -> true once completed + paid
-  jackpot: JACKPOT_SEED,  // progressive jackpot pool (persisted, grows over time)
 };
 
 const TOPUP_AMOUNT = 50;       // credit added by the top-up button
@@ -748,9 +740,9 @@ function submitScore() {
 }
 
 /* --------------------------- Engagement layer --------------------------- */
-/* Combo multiplier, XP/levels, missions and the progressive jackpot — layered
- * on top of the core slot. Only the combo touches per-spin math (offset by the
- * calibrated base wild weight); the rest are house-funded rewards. */
+/* Combo multiplier, XP/levels and missions — layered on top of the core slot.
+ * Only the combo touches per-spin math (offset by the calibrated base wild
+ * weight); the rest are house-funded rewards. */
 
 /* Track the winning streak for the stats + mission only — it does NOT multiply
  * the win (the combo multiplier was removed on request). Call once per settled
@@ -778,7 +770,7 @@ function expandFreeWilds() {
   }
 }
 
-/* Record a settled base spin: stats, XP and jackpot growth. */
+/* Record a settled base spin: stats and XP. */
 function recordBaseSpin(staked, win) {
   const s = state.stats;
   s.spins += 1;
@@ -789,29 +781,7 @@ function recordBaseSpin(staked, win) {
   if (win > s.biggest) s.biggest = round2(win);
   if (staked > 0 && win >= staked * 20) state.counters.big += 1;
   addXp(XP_PER_SPIN + (win > 0 ? XP_PER_WIN : 0));
-  state.jackpot = round2(state.jackpot + staked * JACKPOT_RATE);
-  updateJackpot();
   checkMissions();
-}
-
-/* Rare progressive-jackpot hit on a paid base spin. Returns true if it hit. */
-async function maybeHitJackpot() {
-  if (state.jackpot <= JACKPOT_SEED) return false;
-  if (Math.random() >= JACKPOT_CHANCE) return false;
-  const won = round2(state.jackpot);
-  state.jackpot = JACKPOT_SEED;
-  state.credit = round2(state.credit + won);
-  state.lastWin = won;
-  state.counters.jackpot += 1;
-  updateJackpot();
-  updateMeters();
-  saveGame();
-  SFX.play('jackpot');
-  showWinPopup(`💎 JACKPOT!  ${fmt(won)} €`);
-  await bigWinCelebration(won);
-  hideWinPopup();
-  checkMissions();
-  return true;
 }
 
 function addXp(n) {
@@ -834,9 +804,6 @@ function updateLevelBar() {
   if (fill) fill.style.width = Math.min(100, Math.round(state.xp / xpForLevel(state.level) * 100)) + '%';
 }
 
-function updateJackpot() {
-  const v = $('#jackpotVal'); if (v) v.textContent = fmt(state.jackpot) + ' €';
-}
 
 /* Bump a mission counter and re-check completion. */
 function bumpCounter(key, by) {
@@ -900,13 +867,12 @@ function renderStats() {
   set('#stStreak', s.bestStreak);
   set('#stRtp', s.spins ? rtp.toFixed(1) + '%' : '—');
   set('#stLevel', state.level);
-  set('#stJackpots', state.counters.jackpot);
 }
 
 function openStats() { renderStats(); $('#statsModal').classList.remove('hidden'); }
 
 function updateEngagementUI() {
-  updateLevelBar(); updateJackpot(); renderMissions();
+  updateLevelBar(); renderMissions();
 }
 
 /* ------------------------------- Restart -------------------------------- */
@@ -929,12 +895,11 @@ function restartGame() {
   state.combo = 0;
   state.stats = { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 };
   state.xp = 0; state.level = 1;
-  state.counters = { free: 0, gold: 0, gambleWin: 0, big: 0, jackpot: 0 };
+  state.counters = { free: 0, gold: 0, gambleWin: 0, big: 0 };
   state.missionsDone = {};
-  state.jackpot = JACKPOT_SEED;
   saveGame();
   updateMeters();
-  updateLevelBar(); updateJackpot(); renderMissions();
+  updateLevelBar(); renderMissions();
   SFX.play('click');
   showWinPopup('ÚJRAINDÍTVA');
   setTimeout(hideWinPopup, 1200);
@@ -974,7 +939,6 @@ function saveGame() {
       winHistory: state.winHistory.slice(0, 20),
       stats: state.stats, xp: state.xp, level: state.level,
       counters: state.counters, missionsDone: state.missionsDone,
-      jackpot: state.jackpot,
     }));
   } catch (e) { /* ignore */ }
 }
@@ -1014,10 +978,9 @@ function loadGame() {
       if (Number.isFinite(s.xp) && s.xp >= 0) state.xp = s.xp;
       if (Number.isInteger(s.level) && s.level >= 1) state.level = s.level;
       if (s.counters && typeof s.counters === 'object') {
-        state.counters = Object.assign({ free: 0, gold: 0, gambleWin: 0, big: 0, jackpot: 0 }, s.counters);
+        state.counters = Object.assign({ free: 0, gold: 0, gambleWin: 0, big: 0 }, s.counters);
       }
       if (s.missionsDone && typeof s.missionsDone === 'object') state.missionsDone = s.missionsDone;
-      if (Number.isFinite(s.jackpot) && s.jackpot >= JACKPOT_SEED) state.jackpot = round2(s.jackpot);
     }
   } catch (e) { /* ignore */ }
 }
@@ -1386,8 +1349,7 @@ async function doSpin() {
       // and the winning spin becomes gambleable — like a manual spin.
       await settleResult(result, goldSpinNow, state.auto);
       if (!goldSpinNow) {
-        recordBaseSpin(totalBet(), result.totalWin);   // stats, XP, jackpot growth, missions
-        await maybeHitJackpot();                        // rare progressive-jackpot hit
+        recordBaseSpin(totalBet(), result.totalWin);   // stats, XP, missions
       }
     }
 
@@ -1949,7 +1911,7 @@ function init() {
   buildBoard();
   buildPaytable();
   updateMeters();
-  updateEngagementUI();   // level bar, jackpot, combo meter, missions
+  updateEngagementUI();   // level bar, combo meter, missions
   renderSlotRoundHistory(); // restore the last-20 round strip
   checkMissions();        // in case a save already met some goals
 
@@ -2116,7 +2078,7 @@ document.addEventListener('DOMContentLoaded', init);
  * and drive the game state. Harmless in normal play. */
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
-  MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar, updateJackpot,
+  MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar,
   setControlsEnabled, stopAutoplay, endFreeGame, endGoldGame, maxBet,
   // shared-balance API for the blackjack table (js/blackjack.js)
   saveGame, round2, fmt,
