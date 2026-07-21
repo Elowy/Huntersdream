@@ -2051,4 +2051,6 @@ window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderG
   // shared-balance API for the blackjack table (js/blackjack.js)
   saveGame, round2, fmt,
   // shared round-history strip (blackjack + roulette reuse these)
-  pushRoundWin, renderRoundHistory };
+  pushRoundWin, renderRoundHistory,
+  // unified bet steps for the second slot machine (js/slot2.js)
+  BET_STEPS };

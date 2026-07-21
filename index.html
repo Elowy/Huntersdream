@@ -76,6 +76,7 @@
     <nav class="hamburger-menu hidden" id="hamburgerMenu" aria-label="Funkciók">
       <button id="bjBtn" class="hm-item" type="button"><span class="hm-emoji">🃏</span><span>Blackjack</span></button>
       <button id="rlBtn" class="hm-item" type="button"><span class="hm-emoji">🎡</span><span>Rulett</span></button>
+      <button id="s2Btn" class="hm-item" type="button"><span class="hm-emoji">🎰</span><span>Lucky Sevens</span></button>
       <button id="boardBtn" class="hm-item" type="button"><span class="hm-emoji">🏆</span><span>Toplista</span></button>
       <button id="statsBtn" class="hm-item" type="button"><span class="hm-emoji">📊</span><span>Statisztika</span></button>
       <button id="turboBtn" class="hm-item" type="button"><span class="hm-emoji">⚡</span><span>Villám mód</span></button>
@@ -285,6 +286,39 @@
     </div>
   </div>
 
+  <!-- ===================== LUCKY SEVENS (3x3 slot, shared balance) ====== -->
+  <div class="sv-view hidden" id="s2View">
+    <header class="sv-topbar">
+      <button id="s2BackBtn" class="sv-back" type="button">🎰 Vissza a géphez</button>
+      <h2 class="sv-title">🎰 LUCKY SEVENS</h2>
+      <div class="sv-credit-box">KREDIT <b id="s2Credit">0.00</b> €</div>
+    </header>
+
+    <div class="sv-machine">
+      <div class="sv-reels" id="s2Reels"></div>
+      <div class="sv-msg" id="s2Msg">Tedd meg a téted, majd PÖRGESS!</div>
+    </div>
+
+    <div class="sv-meters">
+      <div class="sv-meter"><span>TÉT</span><b id="s2Bet">1.00</b></div>
+      <div class="sv-meter win"><span>NYEREMÉNY</span><b id="s2Win">0.00</b></div>
+    </div>
+
+    <div class="sv-controls">
+      <button id="s2BetMinus" class="sv-btn" type="button">TÉT −</button>
+      <button id="s2BetPlus" class="sv-btn" type="button">TÉT +</button>
+      <button id="s2Spin" class="sv-btn primary" type="button">PÖRGESS</button>
+    </div>
+    <button id="s2GambleBtn" class="sv-gamble-btn" type="button" disabled>🃏 DUPLÁZÁS<span id="s2GambleAmt"></span></button>
+
+    <div class="round-history">
+      <span class="rh-label">Utolsó 20 kör</span>
+      <div class="rh-strip" id="s2RoundHistory"></div>
+    </div>
+
+    <div class="sv-paytable" id="s2Paytable"></div>
+  </div>
+
   <!-- Rules modal -->
   <div class="modal hidden" id="rulesModal">
     <div class="modal-box">
@@ -476,5 +510,6 @@
   <script src="js/game.js"></script>
   <script src="js/blackjack.js"></script>
   <script src="js/roulette.js"></script>
+  <script src="js/slot2.js"></script>
 </body>
 </html>
