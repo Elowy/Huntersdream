@@ -1994,4 +1994,6 @@ document.addEventListener('DOMContentLoaded', init);
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
   MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar, updateJackpot,
-  setControlsEnabled, stopAutoplay };
+  setControlsEnabled, stopAutoplay,
+  // shared-balance API for the blackjack table (js/blackjack.js)
+  saveGame, round2, fmt };

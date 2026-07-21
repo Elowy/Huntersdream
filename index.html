@@ -57,7 +57,7 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div class="cabinet">
+  <div class="cabinet" id="slotView">
     <!-- LEFT column in landscape: the game stage (logo, reels, meters) -->
     <div class="stage">
     <header class="topbar">
@@ -65,6 +65,7 @@
         <span class="logo-adventure">ADVENTURE</span>
         <span class="logo-spins">SPINS</span>
       </h1>
+      <button id="bjBtn" class="icon-btn" type="button" title="Blackjack asztal">🃏</button>
       <button id="boardBtn" class="icon-btn" type="button" title="Toplista">🏆</button>
       <button id="missionsBtn" class="icon-btn" type="button" title="Küldetések">🎯</button>
       <button id="statsBtn" class="icon-btn" type="button" title="Statisztika">📊</button>
@@ -167,6 +168,62 @@
       <span>Az összes érték EUR-ban · 5 tárcsa · 20 nyerővonal</span>
     </footer>
     </div><!-- /.panel -->
+  </div>
+
+  <!-- ===================== BLACKJACK TABLE (shared balance) ============ -->
+  <div class="bj-view hidden" id="bjView">
+    <header class="bj-topbar">
+      <button id="bjBackBtn" class="bj-back" type="button">🎰 Vissza a géphez</button>
+      <h2 class="bj-title">🃏 BLACKJACK</h2>
+      <div class="bj-credit-box">KREDIT <b id="bjCredit">0.00</b> €</div>
+    </header>
+
+    <div class="bj-felt">
+      <div class="bj-dealer">
+        <div class="bj-hand-label">OSZTÓ <span id="bjDealerVal"></span></div>
+        <div class="bj-cards" id="bjDealerCards"></div>
+      </div>
+
+      <div class="bj-msg" id="bjMsg">Tedd meg a téted, majd OSZT!</div>
+      <div class="bj-side-msg" id="bjSideMsg"></div>
+
+      <div class="bj-player" id="bjPlayerHands"></div>
+
+      <div class="bj-spots" id="bjSpots">
+        <button class="bj-spot main" data-spot="main" type="button"><span class="bj-spot-label">TÉT</span><b id="bjBetMain">0.00</b></button>
+        <button class="bj-spot" data-spot="pp" type="button"><span class="bj-spot-label">Perfect Pairs</span><b id="bjBetPp">0.00</b></button>
+        <button class="bj-spot" data-spot="t3" type="button"><span class="bj-spot-label">21+3</span><b id="bjBetT3">0.00</b></button>
+        <button class="bj-spot" data-spot="ll" type="button"><span class="bj-spot-label">Lucky Lucky</span><b id="bjBetLl">0.00</b></button>
+      </div>
+    </div>
+
+    <div class="bj-controls">
+      <div class="bj-chips" id="bjChips"></div>
+
+      <div class="bj-actions" id="bjBetActions">
+        <button id="bjClear" class="bj-btn ghost" type="button">TÖRÖL</button>
+        <button id="bjRebet" class="bj-btn ghost" type="button">ISMÉT</button>
+        <button id="bjDeal" class="bj-btn primary" type="button">OSZT</button>
+      </div>
+
+      <div class="bj-actions hidden" id="bjPlayActions">
+        <button id="bjHit" class="bj-btn" type="button">LAP</button>
+        <button id="bjStand" class="bj-btn" type="button">MEGÁLL</button>
+        <button id="bjDouble" class="bj-btn" type="button">DUPLA</button>
+        <button id="bjSplit" class="bj-btn" type="button">SPLIT</button>
+      </div>
+
+      <div class="bj-actions ins hidden" id="bjInsActions">
+        <span class="bj-ins-q">Biztosítás? (fél tét)</span>
+        <button id="bjInsYes" class="bj-btn" type="button">IGEN</button>
+        <button id="bjInsNo" class="bj-btn" type="button">NEM</button>
+      </div>
+
+      <div class="bj-rules-note">
+        6 pakli · osztó megáll soft 17-en · Blackjack fizet 3:2 · dupla &amp; split · biztosítás 2:1<br>
+        Perfect Pairs 6/12/25:1 · 21+3 5–100:1 · Lucky Lucky 2–100:1
+      </div>
+    </div>
   </div>
 
   <!-- Rules modal -->
@@ -368,5 +425,6 @@
   <script src="js/sound.js"></script>
   <script src="js/symbols.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/blackjack.js"></script>
 </body>
 </html>
