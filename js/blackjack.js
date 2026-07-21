@@ -37,6 +37,7 @@
 
   let activeChip = 25;
   let bj = null;
+  const winHistory = [];   // last 20 round net results (round-history strip)
 
   /* --------------------------- Card helpers ---------------------------- */
   function buildShoe() {
@@ -211,18 +212,18 @@
     const wins = [];
     if (bj.bets.pp > 0) {
       const r = evalPP(p[0], p[1]);
-      if (r) { const pay = r2(bj.bets.pp * (r.mult + 1)); adjust(pay); wins.push(`Perfect Pairs: ${r.name} ${r.mult}:1 → +${money(pay - bj.bets.pp)} €`); }
-      else wins.push('Perfect Pairs: nincs');
+      if (r) { const pay = r2(bj.bets.pp * (r.mult + 1)); adjust(pay); wins.push({ t: `Perfect Pairs: ${r.name} ${r.mult}:1 → +${money(pay - bj.bets.pp)} €`, win: true }); }
+      else wins.push({ t: 'Perfect Pairs: nincs', win: false });
     }
     if (bj.bets.t3 > 0) {
       const r = evalT3(three);
-      if (r) { const pay = r2(bj.bets.t3 * (r.mult + 1)); adjust(pay); wins.push(`21+3: ${r.name} ${r.mult}:1 → +${money(pay - bj.bets.t3)} €`); }
-      else wins.push('21+3: nincs');
+      if (r) { const pay = r2(bj.bets.t3 * (r.mult + 1)); adjust(pay); wins.push({ t: `21+3: ${r.name} ${r.mult}:1 → +${money(pay - bj.bets.t3)} €`, win: true }); }
+      else wins.push({ t: '21+3: nincs', win: false });
     }
     if (bj.bets.ll > 0) {
       const r = evalLL(three);
-      if (r) { const pay = r2(bj.bets.ll * (r.mult + 1)); adjust(pay); wins.push(`Lucky Lucky: ${r.name} ${r.mult}:1 → +${money(pay - bj.bets.ll)} €`); }
-      else wins.push('Lucky Lucky: nincs');
+      if (r) { const pay = r2(bj.bets.ll * (r.mult + 1)); adjust(pay); wins.push({ t: `Lucky Lucky: ${r.name} ${r.mult}:1 → +${money(pay - bj.bets.ll)} €`, win: true }); }
+      else wins.push({ t: 'Lucky Lucky: nincs', win: false });
     }
     bj.sideMsgs = wins;
   }
@@ -240,8 +241,8 @@
   function peekAndContinue() {
     const dealerBJ = isBlackjack(bj.dealer);
     if (bj.insurance > 0) {
-      if (dealerBJ) { const pay = r2(bj.insurance * 3); adjust(pay); bj.sideMsgs.push(`Biztosítás nyert 2:1 → +${money(pay - bj.insurance)} €`); }
-      else bj.sideMsgs.push('Biztosítás elveszett');
+      if (dealerBJ) { const pay = r2(bj.insurance * 3); adjust(pay); bj.sideMsgs.push({ t: `Biztosítás nyert 2:1 → +${money(pay - bj.insurance)} €`, win: true }); }
+      else bj.sideMsgs.push({ t: 'Biztosítás elveszett', win: false });
     }
     if (dealerBJ) { bj.hideHole = false; return finishRound('Az osztónak BLACKJACK-je van.'); }
     if (isBlackjack(bj.hands[0].cards)) { bj.hideHole = false; return finishRound(null); } // player natural
@@ -344,11 +345,14 @@
     bj.msg = msg ? msg : results.join(' · ');
     bj.lastBets = Object.assign({}, bj.bets);
     render();
-    // Offer to gamble this round's net profit (shared with the slot/roulette).
-    if (window.HD && window.HD.offerGamble) {
-      const net = r2(credit() - (bj.roundStartCredit || 0));
-      window.HD.offerGamble(net > 0 ? net : 0);
+    // Round net (final credit − credit at deal): drives both the gamble offer
+    // and the round-history strip.
+    const net = r2(credit() - (bj.roundStartCredit || 0));
+    if (window.HD && window.HD.pushRoundWin) {
+      window.HD.pushRoundWin(winHistory, net);
+      window.HD.renderRoundHistory('bjRoundHistory', winHistory);
     }
+    if (window.HD && window.HD.offerGamble) window.HD.offerGamble(net > 0 ? net : 0);
   }
 
   /* --------------------------- Rendering ------------------------------- */
@@ -390,8 +394,17 @@
     // message + side messages
     const m = $('#bjMsg'); if (m) m.textContent = bj.msg || '';
     const sm = $('#bjSideMsg');
-    if (sm) sm.innerHTML = (bj.phase !== 'bet' && bj.sideMsgs && bj.sideMsgs.length)
-      ? bj.sideMsgs.map((t) => `<span class="bj-side-line">${t}</span>`).join('') : '';
+    if (sm) {
+      const list = (bj.phase !== 'bet' && bj.sideMsgs && bj.sideMsgs.length) ? bj.sideMsgs : [];
+      // At round end, present all side-bet outcomes together in a highlighted
+      // summary; winning lines are emphasised.
+      const done = bj.phase === 'done';
+      const anyWin = list.some((e) => e.win);
+      const head = (done && list.length) ? '<span class="bj-side-head">Mellékfogadások</span>' : '';
+      sm.innerHTML = head + list.map((e) => `<span class="bj-side-line${e.win ? ' win' : ''}">${e.t}</span>`).join('');
+      sm.classList.toggle('summary', done && list.length > 0);
+      sm.classList.toggle('has-win', done && anyWin);
+    }
     // credit
     const c = $('#bjCredit'); if (c) c.textContent = money(credit());
     // action groups
@@ -431,6 +444,7 @@
     cab.classList.add('hidden');
     bv.classList.remove('hidden');
     if (!bj) newRound(); else { sync(); render(); }
+    if (window.HD && window.HD.renderRoundHistory) window.HD.renderRoundHistory('bjRoundHistory', winHistory);
   }
   function closeTable() {
     const bv = $('#bjView'), cab = $('#slotView');

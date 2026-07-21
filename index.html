@@ -158,6 +158,10 @@
         <div class="hp-cell"><span class="hp-label">EGYENLEG</span><span class="hp-value" id="hpBalance">10.00 €</span></div>
         <div class="hp-cell"><span class="hp-label">EREDMÉNY</span><span class="hp-value net pos" id="hpNet">+0.00 €</span></div>
       </div>
+      <div class="round-history">
+        <span class="rh-label">Utolsó 20 kör</span>
+        <div class="rh-strip" id="slotRoundHistory"></div>
+      </div>
       <div class="hp-log" id="hpLog"></div>
       <div class="hp-actions">
         <button class="hp-btn" id="boardOpenBtn" type="button">🏆 Toplista</button>
@@ -222,6 +226,11 @@
 
       <button id="bjGambleBtn" class="bj-gamble-btn" type="button" disabled>🃏 DUPLÁZÁS<span id="bjGambleAmt"></span></button>
 
+      <div class="round-history">
+        <span class="rh-label">Utolsó 20 kör</span>
+        <div class="rh-strip" id="bjRoundHistory"></div>
+      </div>
+
       <div class="bj-rules-note">
         6 pakli · osztó megáll soft 17-en · Blackjack fizet 3:2 · dupla &amp; split · biztosítás 2:1<br>
         Perfect Pairs 6/12/25:1 · 21+3 5–100:1 · Lucky Lucky 2–100:1
@@ -261,6 +270,10 @@
         <button id="rlSpin" class="rl-btn primary" type="button">PÖRGESS</button>
       </div>
       <button id="rlGambleBtn" class="rl-gamble-btn" type="button" disabled>🃏 DUPLÁZÁS<span id="rlGambleAmt"></span></button>
+      <div class="round-history">
+        <span class="rh-label">Utolsó 20 kör</span>
+        <div class="rh-strip" id="rlRoundHistory"></div>
+      </div>
       <div class="rl-note">
         Európai kerék (egy 0) · szám 35:1 · split 17:1 · utca 11:1 · sarok 8:1 · hatos sor 5:1 · tucat/oszlop 2:1 · külső tétek 1:1<br>
         A mezőkre / a mezők közti pontokra koppintva teszed a zsetont (split, sarok, utca, hatos sor).

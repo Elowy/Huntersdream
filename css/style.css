@@ -886,6 +886,34 @@ body::after {
   box-shadow: 0 3px 0 #2a2620;
 }
 
+/* ---------- Round-history strip (slot / blackjack / roulette) ---------- */
+.round-history { margin: 8px 0 2px; }
+.rh-label { display: block; font-size: 10px; letter-spacing: 1px; color: #c9a24a; margin-bottom: 4px; text-transform: uppercase; }
+.rh-strip {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  scrollbar-width: thin;
+}
+.rh-strip::-webkit-scrollbar { height: 5px; }
+.rh-strip::-webkit-scrollbar-thumb { background: rgba(246,196,69,0.4); border-radius: 3px; }
+.rh-chip {
+  flex: 0 0 auto;
+  min-width: 40px;
+  text-align: center;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid transparent;
+}
+.rh-chip.win { color: #7dff9a; background: rgba(35,165,68,0.18); border-color: rgba(125,255,154,0.4); }
+.rh-chip.loss { color: #ff8a8a; background: rgba(165,35,35,0.18); border-color: rgba(255,138,138,0.35); }
+.rh-chip.zero { color: #8a8fa0; background: rgba(120,130,150,0.12); }
+.rh-empty { font-size: 12px; color: #7a8090; }
+
 /* ---------- Session history panel ---------- */
 .history-panel {
   background: #05070d;
@@ -1280,6 +1308,18 @@ body::after {
 .bj-msg { text-align: center; font-weight: 800; margin: 12px 0 4px; min-height: 20px; color: #fff; }
 .bj-side-msg { display: flex; flex-direction: column; gap: 2px; align-items: center; margin-bottom: 6px; }
 .bj-side-line { font-size: 12px; color: #d9ffe4; }
+/* Round-end summary of all side bets, slightly highlighted. */
+.bj-side-msg.summary {
+  gap: 3px;
+  padding: 7px 12px;
+  margin: 4px auto 8px;
+  border: 1px solid rgba(246,196,69,0.45);
+  border-radius: 9px;
+  background: rgba(0,0,0,0.28);
+}
+.bj-side-msg.summary.has-win { border-color: rgba(125,255,154,0.65); box-shadow: 0 0 10px rgba(125,255,154,0.2); }
+.bj-side-head { font-size: 10px; letter-spacing: 1px; font-weight: 800; color: #c9a24a; text-transform: uppercase; }
+.bj-side-line.win { color: #7dff9a; font-weight: 800; }
 
 .bj-player { margin-top: 8px; gap: 12px; }
 .bj-player .bj-hand { padding: 6px 8px; border-radius: 12px; border: 2px solid transparent; }
@@ -1401,6 +1441,10 @@ body::after {
 .rl-cell:hover rect { filter: brightness(1.25); }
 .rl-hot { cursor: pointer; }
 .rl-hot:hover { fill: rgba(246,196,69,0.5); }
+/* The rendered chips + winner highlight are purely visual and sit on top of the
+ * betting cells — let clicks pass through so stacking a second chip on the same
+ * spot (e.g. 2×5 on 14) still hits the cell beneath and accumulates. */
+#rlChipLayer, #rlHi { pointer-events: none; }
 
 .rl-controls { margin-top: 12px; }
 .rl-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
