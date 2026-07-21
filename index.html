@@ -65,20 +65,28 @@
         <span class="logo-adventure">ADVENTURE</span>
         <span class="logo-spins">SPINS</span>
       </h1>
-      <button id="bjBtn" class="icon-btn" type="button" title="Blackjack asztal">🃏</button>
-      <button id="rlBtn" class="icon-btn" type="button" title="Rulett asztal">🎡</button>
-      <button id="boardBtn" class="icon-btn" type="button" title="Toplista">🏆</button>
-      <button id="missionsBtn" class="icon-btn" type="button" title="Küldetések">🎯</button>
-      <button id="statsBtn" class="icon-btn" type="button" title="Statisztika">📊</button>
-      <button id="turboBtn" class="icon-btn" type="button" title="Villám — gyors pörgetés">⚡</button>
-      <button id="musicBtn" class="icon-btn" type="button" title="Háttérzene">🎵</button>
-      <button id="muteBtn" class="icon-btn" type="button" title="Hang">🔊</button>
-      <button id="rulesBtn" class="rules-btn" type="button">Szabályok</button>
+      <div class="topbar-right">
+        <!-- Combo streak counter: grows + reddens (to maroon) as wins stack. -->
+        <span class="combo-counter" id="comboCounter"></span>
+        <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Menü" aria-expanded="false" aria-controls="hamburgerMenu">☰</button>
+      </div>
     </header>
+
+    <!-- Slide-down menu holding all the secondary functions. -->
+    <nav class="hamburger-menu hidden" id="hamburgerMenu" aria-label="Funkciók">
+      <button id="bjBtn" class="hm-item" type="button"><span class="hm-emoji">🃏</span><span>Blackjack</span></button>
+      <button id="rlBtn" class="hm-item" type="button"><span class="hm-emoji">🎡</span><span>Rulett</span></button>
+      <button id="boardBtn" class="hm-item" type="button"><span class="hm-emoji">🏆</span><span>Toplista</span></button>
+      <button id="statsBtn" class="hm-item" type="button"><span class="hm-emoji">📊</span><span>Statisztika</span></button>
+      <button id="turboBtn" class="hm-item" type="button"><span class="hm-emoji">⚡</span><span>Villám mód</span></button>
+      <button id="musicBtn" class="hm-item" type="button"><span class="hm-emoji">🎵</span><span>Háttérzene</span></button>
+      <button id="muteBtn" class="hm-item" type="button"><span class="hm-emoji" id="muteIcon">🔊</span><span>Hang</span></button>
+      <button id="rulesBtn" class="hm-item" type="button"><span class="hm-emoji">📖</span><span>Szabályok</span></button>
+    </nav>
 
     <!-- Engagement info strip: level + XP -->
     <div class="infobar">
-      <button class="ib-level" id="levelChip" type="button" title="Szint & küldetések">
+      <button class="ib-level" id="levelChip" type="button" title="Szint & statisztika">
         <span class="ib-lvl">Lv <b id="lvlNum">1</b></span>
         <span class="ib-xp"><i id="xpFill"></i></span>
       </button>
@@ -329,8 +337,7 @@
             <b>3 vagy több GOLD</b> a pályán <b>5 pörgetést</b> indít, amelyben
             <b>több WILD</b> jelenik meg.</li>
         <li><b>⭐ Szint & XP:</b> pörgetésekért XP jár; szintlépéskor
-            <b>kredit-jutalmat</b> kapsz. <b>🎯 Küldetések:</b> teljesíthető
-            kihívások, a jutalom automatikusan jóváíródik.</li>
+            <b>kredit-jutalmat</b> kapsz.</li>
         <li><b>DUPLÁZÁS:</b> nyeremény után (a <b>bónusznyeremény</b> is)
             kockáztathatsz — találd el a lap <b>színét</b> (piros/fekete) a
             nyereményed <b>×2</b>-éért, a pontos <b>szimbólumot</b> (♥ ♦ ♠ ♣)
@@ -442,15 +449,6 @@
     </div>
   </div>
 
-  <!-- Missions (küldetések) modal -->
-  <div class="modal hidden" id="missionModal">
-    <div class="modal-box">
-      <button class="modal-close" id="missionClose" type="button">✕</button>
-      <h2>🎯 KÜLDETÉSEK</h2>
-      <p class="board-sub">Teljesítsd a kihívásokat — a jutalom automatikusan jóváíródik. <b id="missionSub"></b></p>
-      <ul class="mission-list" id="missionList"></ul>
-    </div>
-  </div>
 
   <!-- Statistics (statisztika) modal -->
   <div class="modal hidden" id="statsModal">

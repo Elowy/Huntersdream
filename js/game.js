@@ -141,7 +141,7 @@ function wildWeightFor(rtp) {
   const i = Math.max(0, Math.min(WILD_TABLE.length - 1, Math.round(rtp) - RTP_MIN));
   return WILD_TABLE[i];
 }
-/* The winning STREAK is tracked for the stats + mission, but it no longer
+/* The winning STREAK drives the combo counter + stats, but it no longer
  * multiplies the win (removed on request — it was inflating wins). */
 /* EXPANDING WILD lives in the free game: a landed wild fills its whole reel.
  * That makes wilds very powerful, so the free-game wild weight is retuned
@@ -163,23 +163,10 @@ function effectiveWildWeight() {
 }
 function wildWeight() { return activeWild != null ? activeWild : effectiveWildWeight(); }
 
-/* XP/level and missions are engagement rewards layered on top of the base game. */
+/* XP/level progression is layered on top of the base game. */
 const XP_PER_SPIN = 1;            // XP earned per base spin
 const XP_PER_WIN = 2;             // extra XP on a winning base spin
 const xpForLevel = (l) => 40 + (l - 1) * 25;   // XP needed to advance FROM level l
-
-/* Missions (achievements): one-time goals that auto-pay a credit reward when
- * reached. `val()` reads the live progress from stats / counters. */
-const MISSIONS = [
-  { id: 'm_spins',  label: 'Pörgess 50-szer',                 goal: 50,  reward: 25, val: () => state.stats.spins },
-  { id: 'm_won',    label: 'Nyerj összesen 500 €-t',          goal: 500, reward: 50, val: () => Math.floor(state.stats.won) },
-  { id: 'm_streak', label: 'Érj el 5-ös nyerő sorozatot',     goal: 5,   reward: 40, val: () => state.stats.bestStreak },
-  { id: 'm_free',   label: 'Indíts egy ingyenes játékot',     goal: 1,   reward: 50, val: () => state.counters.free },
-  { id: 'm_gold',   label: 'Indíts egy arany bónuszt',        goal: 1,   reward: 50, val: () => state.counters.gold },
-  { id: 'm_gamble', label: 'Nyerj 3 duplázást',               goal: 3,   reward: 40, val: () => state.counters.gambleWin },
-  { id: 'm_big',    label: 'Nyerj 20× tétet egy pörgetésen',  goal: 1,   reward: 60, val: () => state.counters.big },
-  { id: 'm_level',  label: 'Érd el a 5. szintet',             goal: 5,   reward: 75, val: () => state.level },
-];
 
 /* ------------------------------- State ---------------------------------- */
 
@@ -209,11 +196,9 @@ const state = {
   withdrawn: 0,           // total credits ever taken out (cashed out)
   deposits: [],           // cash-flow log (+ deposits / − withdrawals) for the panel
   // --- engagement features ---
-  combo: 0,               // current base-game win streak (in-memory, per session)
+  combo: 0,               // current base-game win streak (drives the combo counter)
   stats: { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 },
   xp: 0, level: 1,        // XP / level progression
-  counters: { free: 0, gold: 0, gambleWin: 0, big: 0 }, // mission progress
-  missionsDone: {},       // mission id -> true once completed + paid
 };
 
 const TOPUP_AMOUNT = 50;       // credit added by the top-up button
@@ -740,17 +725,35 @@ function submitScore() {
 }
 
 /* --------------------------- Engagement layer --------------------------- */
-/* Combo multiplier, XP/levels and missions — layered on top of the core slot.
- * Only the combo touches per-spin math (offset by the calibrated base wild
- * weight); the rest are house-funded rewards. */
+/* Combo counter and XP/levels — layered on top of the core slot. Neither
+ * touches per-spin math; they are display + house-funded level rewards. */
 
-/* Track the winning streak for the stats + mission only — it does NOT multiply
- * the win (the combo multiplier was removed on request). Call once per settled
- * BASE spin (never in free/gold). */
+/* Track the winning streak (COMBO): +1 on a winning base spin, reset to 0 on a
+ * losing one. It does NOT multiply the win — it drives the combo counter badge
+ * in the top bar. Call once per settled BASE spin (never in free/gold). */
 function applyCombo(result) {
   if (result.totalWin > 0) state.combo += 1;
   else state.combo = 0;
   if (state.combo > state.stats.bestStreak) state.stats.bestStreak = state.combo;
+  updateComboUI();
+}
+
+/* The combo badge grows and reddens as the streak climbs: it appears at 2,
+ * scales up (≈1.5× by 5, capped), and shifts from bright red toward deep
+ * maroon (bordó). Hidden entirely when the streak is 0-1. */
+function updateComboUI() {
+  const el = $('#comboCounter');
+  if (!el) return;
+  const c = state.combo;
+  if (c < 2) { el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = '🔥 ' + c + '×';
+  el.classList.add('show');
+  const scale = Math.min(1 + (c - 1) * 0.125, 2);      // 1.5× at 5, capped at 2× (from 9)
+  // Hue slides from bright red (0°) toward deep maroon as the streak grows.
+  const t = Math.min((c - 2) / 8, 1);                  // 0 at 2 → 1 by 10
+  const light = Math.round(52 - t * 26);               // 52% → 26% (brighter → bordó)
+  el.style.setProperty('--combo-scale', scale.toFixed(2));
+  el.style.setProperty('--combo-bg', `hsl(0 ${Math.round(70 + t * 25)}% ${light}%)`);
 }
 
 /* Expanding wild: in the free game a landed wild fills its entire reel. Make it
@@ -779,9 +782,7 @@ function recordBaseSpin(staked, win) {
   pushRoundWin(state.winHistory, win);      // round-history strip (win amount)
   renderSlotRoundHistory();
   if (win > s.biggest) s.biggest = round2(win);
-  if (staked > 0 && win >= staked * 20) state.counters.big += 1;
   addXp(XP_PER_SPIN + (win > 0 ? XP_PER_WIN : 0));
-  checkMissions();
 }
 
 function addXp(n) {
@@ -793,7 +794,6 @@ function addXp(n) {
     state.credit = round2(state.credit + reward);
     SFX.play('levelup');
     flashToast(`⭐ SZINT ${state.level}! +${fmt(reward)} €`);
-    checkMissions();
   }
   updateLevelBar();
 }
@@ -805,29 +805,6 @@ function updateLevelBar() {
 }
 
 
-/* Bump a mission counter and re-check completion. */
-function bumpCounter(key, by) {
-  if (state.counters[key] == null) state.counters[key] = 0;
-  state.counters[key] += (by || 1);
-  checkMissions();
-}
-
-/* Check every mission; auto-pay newly completed ones. */
-function checkMissions() {
-  let changed = false;
-  for (const m of MISSIONS) {
-    if (state.missionsDone[m.id]) continue;
-    if (m.val() >= m.goal) {
-      state.missionsDone[m.id] = true;
-      state.credit = round2(state.credit + m.reward);
-      SFX.play('mission');
-      flashToast(`🎯 KÜLDETÉS KÉSZ! ${m.label} +${fmt(m.reward)} €`);
-      changed = true;
-    }
-  }
-  if (changed) { updateMeters(); saveGame(); renderMissions(); }
-}
-
 /* A brief, non-blocking toast (its own element, never fights the win popup). */
 let toastTimer = null;
 function flashToast(text) {
@@ -837,24 +814,6 @@ function flashToast(text) {
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2100);
 }
-
-function renderMissions() {
-  const list = $('#missionList'); if (!list) return;
-  list.innerHTML = MISSIONS.map((m) => {
-    const cur = Math.min(m.val(), m.goal);
-    const done = !!state.missionsDone[m.id];
-    const pct = Math.round(cur / m.goal * 100);
-    return `<li class="mission-row${done ? ' done' : ''}">`
-      + `<div class="mr-top"><span class="mr-label">${done ? '✅ ' : ''}${escapeHtml(m.label)}</span>`
-      + `<span class="mr-reward">+${fmt(m.reward)} €</span></div>`
-      + `<div class="mr-bar"><i style="width:${pct}%"></i></div>`
-      + `<div class="mr-prog">${cur} / ${m.goal}</div></li>`;
-  }).join('');
-  const done = MISSIONS.filter((m) => state.missionsDone[m.id]).length;
-  const sub = $('#missionSub'); if (sub) sub.textContent = `${done} / ${MISSIONS.length} teljesítve`;
-}
-
-function openMissions() { renderMissions(); $('#missionModal').classList.remove('hidden'); }
 
 function renderStats() {
   const s = state.stats;
@@ -872,7 +831,7 @@ function renderStats() {
 function openStats() { renderStats(); $('#statsModal').classList.remove('hidden'); }
 
 function updateEngagementUI() {
-  updateLevelBar(); renderMissions();
+  updateLevelBar(); updateComboUI();
 }
 
 /* ------------------------------- Restart -------------------------------- */
@@ -895,11 +854,9 @@ function restartGame() {
   state.combo = 0;
   state.stats = { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 };
   state.xp = 0; state.level = 1;
-  state.counters = { free: 0, gold: 0, gambleWin: 0, big: 0 };
-  state.missionsDone = {};
   saveGame();
   updateMeters();
-  updateLevelBar(); renderMissions();
+  updateLevelBar(); updateComboUI();
   SFX.play('click');
   showWinPopup('ÚJRAINDÍTVA');
   setTimeout(hideWinPopup, 1200);
@@ -938,7 +895,6 @@ function saveGame() {
       gambleHistory: state.gambleHistory.slice(0, 10),
       winHistory: state.winHistory.slice(0, 20),
       stats: state.stats, xp: state.xp, level: state.level,
-      counters: state.counters, missionsDone: state.missionsDone,
     }));
   } catch (e) { /* ignore */ }
 }
@@ -977,10 +933,6 @@ function loadGame() {
       }
       if (Number.isFinite(s.xp) && s.xp >= 0) state.xp = s.xp;
       if (Number.isInteger(s.level) && s.level >= 1) state.level = s.level;
-      if (s.counters && typeof s.counters === 'object') {
-        state.counters = Object.assign({ free: 0, gold: 0, gambleWin: 0, big: 0 }, s.counters);
-      }
-      if (s.missionsDone && typeof s.missionsDone === 'object') state.missionsDone = s.missionsDone;
     }
   } catch (e) { /* ignore */ }
 }
@@ -1349,7 +1301,7 @@ async function doSpin() {
       // and the winning spin becomes gambleable — like a manual spin.
       await settleResult(result, goldSpinNow, state.auto);
       if (!goldSpinNow) {
-        recordBaseSpin(totalBet(), result.totalWin);   // stats, XP, missions
+        recordBaseSpin(totalBet(), result.totalWin);   // stats + XP
       }
     }
 
@@ -1435,7 +1387,7 @@ async function triggerGoldGame(result) {
     cellEls[c][r].classList.add('win-cell');
   });
   const firstGold = !state.inGoldGame;
-  if (firstGold) { state.bonusWin = 0; bumpCounter('gold'); }   // fresh accumulator + mission
+  if (firstGold) state.bonusWin = 0;   // fresh accumulator for the bonus session
   state.goldSpins += GOLD_BONUS_SPINS;
   state.inGoldGame = true;
   SFX.play('freespins');
@@ -1463,7 +1415,6 @@ function finishBonus(label) {
     if (total > state.stats.biggest) state.stats.biggest = total;
     pushRoundWin(state.winHistory, total);         // bonus total as its own round-history entry
     renderSlotRoundHistory();
-    checkMissions();
   }
   updateMeters();
   saveGame();
@@ -1487,7 +1438,7 @@ async function triggerFreeGames(result) {
     cellEls[c][r].classList.add('win-cell');
   });
   const first = !state.inFreeGame;
-  if (first) { state.bonusWin = 0; bumpCounter('free'); }   // fresh accumulator + mission
+  if (first) state.bonusWin = 0;   // fresh accumulator for the bonus session
   state.freeSpins += FREE_SPINS_AWARD;
   SFX.play('freespins');
   showWinPopup(`🏚️ ${FREE_SPINS_AWARD} INGYENES JÁTÉK!`);
@@ -1831,7 +1782,6 @@ async function gambleGuess(choice) {
     entry.delta = gain;                                    // net gain for the history
     renderGambleHistory();
     gambleRounds++;
-    bumpCounter('gambleWin');                              // mission progress
     updateGambleUI();
     updateMeters();
     SFX.play('gambleWin');
@@ -1911,9 +1861,8 @@ function init() {
   buildBoard();
   buildPaytable();
   updateMeters();
-  updateEngagementUI();   // level bar, combo meter, missions
+  updateEngagementUI();   // level bar, combo counter
   renderSlotRoundHistory(); // restore the last-20 round strip
-  checkMissions();        // in case a save already met some goals
 
   // Load any bitmap art from images/, then re-render so it replaces the SVG.
   probeImages().then(() => { renderGrid(); buildPaytable(); });
@@ -1969,13 +1918,30 @@ function init() {
   // Sound mute toggle.
   const savedMute = (() => { try { return localStorage.getItem('hd_mute') === '1'; } catch (e) { return false; } })();
   SFX.setMuted(savedMute);
-  $('#muteBtn').textContent = savedMute ? '🔇' : '🔊';
+  const muteIcon = () => $('#muteIcon') || $('#muteBtn');
+  muteIcon().textContent = savedMute ? '🔇' : '🔊';
   $('#muteBtn').addEventListener('click', () => {
     SFX.resume();
     const m = SFX.toggleMute();
-    $('#muteBtn').textContent = m ? '🔇' : '🔊';
+    muteIcon().textContent = m ? '🔇' : '🔊';
     try { localStorage.setItem('hd_mute', m ? '1' : '0'); } catch (e) { /* ignore */ }
   });
+
+  // Hamburger menu: toggle open/closed; close after picking an item or clicking
+  // outside. The individual item handlers (blackjack, rulett, …) are wired above.
+  const hamBtn = $('#hamburgerBtn'), hamMenu = $('#hamburgerMenu');
+  const closeMenu = () => { if (hamMenu) hamMenu.classList.add('hidden'); if (hamBtn) hamBtn.setAttribute('aria-expanded', 'false'); };
+  if (hamBtn && hamMenu) {
+    hamBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = hamMenu.classList.toggle('hidden') === false;
+      hamBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    hamMenu.querySelectorAll('.hm-item').forEach((b) => b.addEventListener('click', closeMenu));
+    document.addEventListener('click', (e) => {
+      if (!hamMenu.classList.contains('hidden') && !hamMenu.contains(e.target) && e.target !== hamBtn) closeMenu();
+    });
+  }
 
   // Lightning (turbo) mode: fast spins, win counted in one go.
   state.turbo = (() => { try { return localStorage.getItem('hd_turbo') === '1'; } catch (e) { return false; } })();
@@ -1987,15 +1953,9 @@ function init() {
     try { localStorage.setItem('hd_turbo', state.turbo ? '1' : '0'); } catch (e) { /* ignore */ }
   });
 
-  // Missions (küldetések) modal.
-  const missionsBtn = $('#missionsBtn');
-  if (missionsBtn) missionsBtn.addEventListener('click', () => { SFX.resume(); openMissions(); });
-  const missionClose = $('#missionClose');
-  if (missionClose) missionClose.addEventListener('click', () => $('#missionModal').classList.add('hidden'));
-  const missionModal = $('#missionModal');
-  if (missionModal) missionModal.addEventListener('click', (e) => { if (e.target.id === 'missionModal') missionModal.classList.add('hidden'); });
+  // The level chip opens the statistics panel.
   const levelChip = $('#levelChip');
-  if (levelChip) levelChip.addEventListener('click', () => { SFX.resume(); openMissions(); });
+  if (levelChip) levelChip.addEventListener('click', () => { SFX.resume(); openStats(); });
 
   // Statistics (statisztika) modal.
   const statsBtn = $('#statsBtn');
@@ -2078,7 +2038,7 @@ document.addEventListener('DOMContentLoaded', init);
  * and drive the game state. Harmless in normal play. */
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
-  MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar,
+  applyCombo, expandFreeWilds, recordBaseSpin, addXp, xpForLevel, renderStats, openStats, updateEngagementUI, updateLevelBar, updateComboUI,
   setControlsEnabled, stopAutoplay, endFreeGame, endGoldGame, maxBet,
   // shared-balance API for the blackjack table (js/blackjack.js)
   saveGame, round2, fmt,

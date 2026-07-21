@@ -68,12 +68,79 @@ body::after {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   position: relative;
   margin-bottom: 12px;
 }
+.topbar-right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+/* Hamburger button + slide-down menu holding the secondary functions. */
+.hamburger-btn {
+  flex: 0 0 auto;
+  background: #2a1c0e;
+  color: var(--gold);
+  border: 2px solid var(--gold-deep);
+  border-radius: 8px;
+  padding: 4px 11px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.hamburger-btn:hover { background: #3a2712; }
+.hamburger-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 3px;
+  min-width: 190px;
+  padding: 6px;
+  background: #14100a;
+  border: 2px solid var(--gold-deep);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+}
+.hm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: #e7d3a0;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.hm-item:hover { background: #2a1c0e; }
+.hm-item.active { background: var(--gold); color: #2a1a08; }
+.hm-emoji { font-size: 17px; width: 22px; text-align: center; flex: 0 0 auto; }
+
+/* Combo streak counter — grows (scale) and reddens toward maroon as it climbs. */
+.combo-counter {
+  --combo-scale: 1;
+  --combo-bg: hsl(0 75% 50%);
+  display: none;
+  transform-origin: right center;
+  transform: scale(var(--combo-scale));
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--combo-bg);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 0 10px rgba(255,60,60,0.5);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: transform .18s cubic-bezier(0.34,1.56,0.64,1), background .25s ease;
+}
+.combo-counter.show { display: inline-block; animation: comboPop .25s ease; }
+@keyframes comboPop { 0% { transform: scale(calc(var(--combo-scale) * 1.35)); } 100% { transform: scale(var(--combo-scale)); } }
 .logo {
   font-weight: 900;
   font-size: clamp(18px, 5vw, 48px);
@@ -1200,24 +1267,6 @@ body::after {
 .ib-lvl { color: var(--gold); white-space: nowrap; }
 .ib-xp { position: relative; width: 44px; height: 7px; border-radius: 5px; background: #05070c; overflow: hidden; box-shadow: inset 0 0 0 1px #2a2f3a; }
 .ib-xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width .4s ease; }
-
-/* ---------------- Missions modal --------------------------------------- */
-.mission-list { list-style: none; padding: 0; margin: 8px 0 0; text-align: left; }
-.mission-row {
-  padding: 9px 12px;
-  border-radius: 10px;
-  background: #0a0d14;
-  border: 1px solid #2a2f3a;
-  margin-bottom: 8px;
-}
-.mission-row.done { border-color: var(--gold-deep); background: #14140a; }
-.mr-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.mr-label { color: #e7d3a0; font-weight: 700; }
-.mr-reward { color: var(--gold); font-weight: 900; white-space: nowrap; }
-.mr-bar { position: relative; height: 7px; border-radius: 5px; background: #05070c; overflow: hidden; margin: 6px 0 3px; box-shadow: inset 0 0 0 1px #2a2f3a; }
-.mr-bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); }
-.mission-row.done .mr-bar i { background: linear-gradient(90deg, #4dff77, #2ecc71); }
-.mr-prog { font-size: 11px; color: #9aa3b2; text-align: right; }
 
 /* ---------------- Statistics modal ------------------------------------- */
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
