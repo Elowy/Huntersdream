@@ -1707,8 +1707,14 @@ function gambleDraw() {
   const m = combinedMult();
   if (m <= 0) return;
   const sel = { color: gambleSel.color, suit: gambleSel.suit, rank: gambleSel.rank };
+  // Human-readable parlay label for the history ("szín+figura ×6").
+  const parts = [];
+  if (sel.color) parts.push('szín');
+  if (sel.suit) parts.push('figura');
+  if (sel.rank) parts.push('lap');
   gambleGuess({
     mult: m,
+    combo: parts.join('+'),
     test: (suit, rank) =>
       (sel.color == null || (sel.color === 'red') === suit.red)
       && (sel.suit == null || sel.suit === suit.s)
@@ -1791,7 +1797,17 @@ function renderGambleHistory() {
   if (!wrap) return;
   if (!state.gambleHistory.length) { wrap.innerHTML = '<span class="gh-empty">Előzmények</span>'; return; }
   wrap.innerHTML = state.gambleHistory
-    .map((c) => `<span class="gh-card ${c.red ? 'red' : 'black'}">${c.rank}<i>${c.s}</i></span>`)
+    .map((c) => {
+      // Small caption: which parlay (kötés) and in what value it was played.
+      let meta = '';
+      if (c.combo) {
+        const val = (typeof c.delta === 'number' && c.delta !== 0)
+          ? `<span class="${c.delta > 0 ? 'win' : 'lose'}">${c.delta > 0 ? '+' : '−'}${fmt(Math.abs(c.delta))}€</span>`
+          : `${fmt(c.stake || 0)}€`;
+        meta = `<small class="gh-meta">${c.combo} ×${c.mult}<br>${val}</small>`;
+      }
+      return `<span class="gh-item"><span class="gh-card ${c.red ? 'red' : 'black'}">${c.rank}<i>${c.s}</i></span>${meta}</span>`;
+    })
     .join('');
 }
 
@@ -1834,19 +1850,24 @@ async function gambleGuess(choice) {
   card.className = 'gamble-card ' + (suit.red ? 'is-red' : 'is-black');
 
   // Record the draw in the history ladder (most recent first, keep last 10).
-  state.gambleHistory.unshift({ rank, s: suit.s, red: suit.red });
+  const staked = state.gambleAmount;
+  // History entry also records the parlay (which bets) and its value, so the
+  // ladder shows "milyen kötések, milyen értékben" — filled with the result below.
+  const entry = { rank, s: suit.s, red: suit.red, combo: choice.combo || '', mult: choice.mult, stake: staked, delta: 0 };
+  state.gambleHistory.unshift(entry);
   if (state.gambleHistory.length > 10) state.gambleHistory.pop();
   renderGambleHistory();
   renderGambleOdds();
   saveGame();
 
-  const staked = state.gambleAmount;
   if (choice.test(suit, rank)) {
     const gain = round2(staked * (choice.mult - 1));
     state.credit = round2(state.credit + gain);            // top up to the multiplied amount
     state.gambleAmount = round2(staked * choice.mult);
     state.lastWin = state.gambleAmount;
     state.gambleNet = round2(state.gambleNet + gain);      // +/- statistics
+    entry.delta = gain;                                    // net gain for the history
+    renderGambleHistory();
     gambleRounds++;
     bumpCounter('gambleWin');                              // mission progress
     updateGambleUI();
@@ -1871,6 +1892,8 @@ async function gambleGuess(choice) {
     state.gambleAmount = 0;
     state.lastWin = 0;
     state.gambleNet = round2(state.gambleNet - staked);    // +/- statistics
+    entry.delta = -staked;                                 // net loss for the history
+    renderGambleHistory();
     updateGambleUI();
     updateMeters();
     saveGame();
