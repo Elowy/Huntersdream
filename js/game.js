@@ -105,11 +105,12 @@ const LINE_COLORS = [
   '#ffa53b', '#3bd2ff', '#ff3b6b', '#6aff3b', '#3b8aff',
 ];
 
-const BET_STEPS = [0.10, 0.30, 0.50, 0.70, 1.00, 2.00, 3.00, 4.00,
-  5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
-  25.00, 50.00, 75.00, 100.00, 150.00, 200.00, 1000.00];
+// Shared TÉT (total-bet) steps — used by both slot machines (unified limits).
+const BET_STEPS = [1, 2.5, 5, 10, 15, 20, 25, 50, 75, 100, 150, 200, 250, 500,
+  750, 777, 800, 900, 1000, 2500, 5000, 7500, 10000, 15000, 20000, 40000,
+  80000, 100000];
 const LINES = PAYLINES.length; // 20
-const START_CREDIT = 100.00;   // ~50 spins at the 0.10 line bet (2.00 total)
+const START_CREDIT = 100.00;   // 100 spins at the minimum 1.00 total bet
 const MAX_STICKY_RESPINS = 6;
 const FREE_SPINS_AWARD = 10;   // 3 scatters award 10 free games
 
@@ -212,13 +213,20 @@ const GAMBLE_MAX_WIN = 5000;   // and on the amount
 /* ------------------------------ Helpers --------------------------------- */
 
 const $ = (sel) => document.querySelector(sel);
-const fmt = (n) => n.toFixed(2);
-/* The player sets and pays a single total bet (totalBet). Internally the
- * paytable pays per line, so lineBet = totalBet / 20 drives the win math —
- * but the UI only ever shows the total TÉT, like the original machine.
- * BET_STEPS holds the per-line values; the displayed/charged bet is ×20. */
-const lineBet = () => BET_STEPS[state.betIndex];
-const totalBet = () => round2(lineBet() * LINES);
+/* Money format: always two decimals, with thousands separators so the large
+ * bet steps (up to 100 000) stay readable — e.g. 100000 -> "100,000.00". */
+const fmt = (n) => {
+  const s = (Math.round(Number(n) * 100) / 100).toFixed(2);
+  const neg = s.startsWith('-');
+  const [int, dec] = (neg ? s.slice(1) : s).split('.');
+  return (neg ? '-' : '') + int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec;
+};
+/* The player sets and pays a single total bet (totalBet) — BET_STEPS holds
+ * these displayed/charged TÉT values directly. Internally the paytable pays
+ * per line, so lineBet = totalBet / 20 drives the win math; the UI only ever
+ * shows the total TÉT, like the original machine. */
+const totalBet = () => BET_STEPS[state.betIndex];
+const lineBet = () => round2(totalBet() / LINES);
 
 function reelSymbols(col) {
   // Build the pool of symbols allowed on this reel.
