@@ -220,6 +220,8 @@
         <button id="bjInsNo" class="bj-btn" type="button">NEM</button>
       </div>
 
+      <button id="bjGambleBtn" class="bj-gamble-btn" type="button" disabled>🃏 DUPLÁZÁS<span id="bjGambleAmt"></span></button>
+
       <div class="bj-rules-note">
         6 pakli · osztó megáll soft 17-en · Blackjack fizet 3:2 · dupla &amp; split · biztosítás 2:1<br>
         Perfect Pairs 6/12/25:1 · 21+3 5–100:1 · Lucky Lucky 2–100:1
@@ -258,6 +260,7 @@
         <button id="rlRebet" class="rl-btn ghost" type="button">ISMÉT</button>
         <button id="rlSpin" class="rl-btn primary" type="button">PÖRGESS</button>
       </div>
+      <button id="rlGambleBtn" class="rl-gamble-btn" type="button" disabled>🃏 DUPLÁZÁS<span id="rlGambleAmt"></span></button>
       <div class="rl-note">
         Európai kerék (egy 0) · szám 35:1 · split 17:1 · utca 11:1 · sarok 8:1 · hatos sor 5:1 · tucat/oszlop 2:1 · külső tétek 1:1<br>
         A mezőkre / a mezők közti pontokra koppintva teszed a zsetont (split, sarok, utca, hatos sor).
@@ -339,27 +342,27 @@
       <h2>DUPLÁZÁS</h2>
       <div class="gamble-amounts">
         <div class="ga-col"><span class="ga-label">TÉT</span><b id="gStake">0.00</b> €</div>
-        <div class="ga-col"><span class="ga-label">SZÍN ×2</span><b id="gWin2">0.00</b> €</div>
-        <div class="ga-col"><span class="ga-label">SZIMB. ×4</span><b id="gWin4">0.00</b> €</div>
-        <div class="ga-col"><span class="ga-label">LAP ×13</span><b id="gWin13">0.00</b> €</div>
+        <div class="ga-col"><span class="ga-label">KÖZÖS SZORZÓ</span><b id="gCombo">×1</b></div>
+        <div class="ga-col"><span class="ga-label">POTENCIÁL</span><b id="gComboWin">0.00</b> €</div>
       </div>
       <div class="gamble-stat">Duplázás mérleg: <b id="gNet" class="pos">+0.00 €</b></div>
       <div class="gamble-history" id="gHistory"></div>
       <div class="gamble-odds" id="gOdds"></div>
       <div class="gamble-card" id="gCard"><span>?</span></div>
-      <div class="gamble-msg" id="gMsg">Tippelj: szín ×2, szimbólum ×4 vagy lap ×13</div>
+      <div class="gamble-msg" id="gMsg">Válaszd ki a színt, figurát és/vagy lapot — a szorzók összeadódnak</div>
+      <div class="gamble-suits-label">Szín — ×2</div>
       <div class="gamble-choices">
-        <button id="gRed" class="g-choice g-red" type="button">PIROS ♥ ♦ <small>×2</small></button>
-        <button id="gBlack" class="g-choice g-black" type="button">FEKETE ♠ ♣ <small>×2</small></button>
+        <button id="gRed" class="g-choice g-red" data-color="red" type="button">PIROS ♥ ♦</button>
+        <button id="gBlack" class="g-choice g-black" data-color="black" type="button">FEKETE ♠ ♣</button>
       </div>
-      <div class="gamble-suits-label">Szimbólum tipp — ×4</div>
+      <div class="gamble-suits-label">Figura — ×4</div>
       <div class="gamble-suits">
         <button class="g-suit red" data-suit="♥" type="button">♥</button>
         <button class="g-suit red" data-suit="♦" type="button">♦</button>
         <button class="g-suit black" data-suit="♠" type="button">♠</button>
         <button class="g-suit black" data-suit="♣" type="button">♣</button>
       </div>
-      <div class="gamble-suits-label">Lap tipp — ×13</div>
+      <div class="gamble-suits-label">Lap — ×13</div>
       <div class="gamble-ranks">
         <button class="g-rank" data-rank="A" type="button">A</button>
         <button class="g-rank" data-rank="K" type="button">K</button>
@@ -375,7 +378,10 @@
         <button class="g-rank" data-rank="3" type="button">3</button>
         <button class="g-rank" data-rank="2" type="button">2</button>
       </div>
-      <button id="gCollect" class="g-collect" type="button">ELVISZ</button>
+      <div class="gamble-actions">
+        <button id="gDraw" class="g-draw" type="button" disabled>🂠 HÚZÁS</button>
+        <button id="gCollect" class="g-collect" type="button">ELVISZ</button>
+      </div>
     </div>
   </div>
 

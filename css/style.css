@@ -831,6 +831,61 @@ body::after {
 .g-suit:disabled { opacity: 0.5; cursor: not-allowed; }
 .g-choice small { font-size: 0.72em; opacity: 0.85; }
 
+/* ---------- Gamble: parlay (summed multipliers) selection ---------- */
+/* A picked colour / suit / rank is highlighted; the combined multiplier is
+ * summed and a single HÚZÁS resolves all picks against one card. */
+.g-choice.sel, .g-suit.sel, .g-rank.sel {
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+  filter: brightness(1.12);
+}
+.g-suit.sel, .g-rank.sel { background: linear-gradient(180deg, #fff7d6, #ffe38a); }
+.gamble-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.g-draw {
+  flex: 2;
+  padding: 13px 8px;
+  border: 2px solid #7a5a10;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffd76a, #e0a020);
+  color: #3a2600;
+  font-weight: 900;
+  font-size: clamp(14px, 3.2vw, 18px);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #7a5a10;
+}
+.g-draw:active { transform: translateY(3px); box-shadow: none; }
+.g-draw:disabled { opacity: 0.45; cursor: not-allowed; }
+.gamble-actions .g-collect { flex: 1; width: auto; }
+
+/* ---------- Cross-game gamble buttons (blackjack / roulette) ---------- */
+.bj-gamble-btn, .rl-gamble-btn {
+  display: block;
+  margin: 8px auto 4px;
+  padding: 10px 22px;
+  border: 2px solid #7a5a10;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffd76a, #e0a020);
+  color: #3a2600;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #7a5a10;
+}
+.bj-gamble-btn:active, .rl-gamble-btn:active { transform: translateY(3px); box-shadow: none; }
+.bj-gamble-btn:disabled, .rl-gamble-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: linear-gradient(180deg, #6a6250, #4a4638);
+  color: #cbbf9a;
+  box-shadow: 0 3px 0 #2a2620;
+}
+
 /* ---------- Session history panel ---------- */
 .history-panel {
   background: #05070d;

@@ -599,6 +599,9 @@ function hideWinPopup() { $('#winPopup').classList.add('hidden'); }
 
 function updateMeters() {
   $('#credit').textContent = fmt(state.credit);
+  // Blackjack and roulette share the same balance — keep their meters in sync.
+  const bjC = $('#bjCredit'); if (bjC) bjC.textContent = fmt(state.credit);
+  const rlC = $('#rlCredit'); if (rlC) rlC.textContent = fmt(state.credit);
   $('#betValue').textContent = fmt(totalBet());   // single TÉT = the amount actually staked
   $('#win').textContent = fmt(state.lastWin);
   const gold = state.inGoldGame;
@@ -1652,6 +1655,46 @@ function loadLayout() {
 
 let gambleRounds = 0;
 let gambleBusy = false;   // gamble history persists in state.gambleHistory (last 10)
+/* Parlay selection: guess any combination of colour / suit / rank at once; the
+ * chosen multipliers are SUMMED. All selected guesses must match to win. */
+let gambleSel = { color: null, suit: null, rank: null };
+const GAMBLE_MULTS = { color: 2, suit: 4, rank: 13 };
+function combinedMult() {
+  return (gambleSel.color ? GAMBLE_MULTS.color : 0)
+    + (gambleSel.suit ? GAMBLE_MULTS.suit : 0)
+    + (gambleSel.rank ? GAMBLE_MULTS.rank : 0);
+}
+function updateGambleSelUI() {
+  const rb = $('#gRed'), bb = $('#gBlack');
+  if (rb) rb.classList.toggle('sel', gambleSel.color === 'red');
+  if (bb) bb.classList.toggle('sel', gambleSel.color === 'black');
+  document.querySelectorAll('#gambleModal .g-suit').forEach((b) => b.classList.toggle('sel', gambleSel.suit === b.dataset.suit));
+  document.querySelectorAll('#gambleModal .g-rank').forEach((b) => b.classList.toggle('sel', gambleSel.rank === b.dataset.rank));
+  const m = combinedMult();
+  const combo = $('#gCombo'); if (combo) combo.textContent = '×' + (m > 0 ? m : 1);
+  const cw = $('#gComboWin'); if (cw) cw.textContent = fmt(round2(state.gambleAmount * (m > 0 ? m : 0)));
+  const draw = $('#gDraw'); if (draw) draw.disabled = gambleBusy || m <= 0 || state.gambleAmount <= 0;
+}
+function resetGambleSel() { gambleSel = { color: null, suit: null, rank: null }; updateGambleSelUI(); }
+function toggleGambleSel(group, value) {
+  if (gambleBusy) return;
+  gambleSel[group] = (gambleSel[group] === value ? null : value);
+  updateGambleSelUI();
+}
+/* Draw one card for the current parlay selection (summed multipliers). */
+function gambleDraw() {
+  if (gambleBusy || state.gambleAmount <= 0) return;
+  const m = combinedMult();
+  if (m <= 0) return;
+  const sel = { color: gambleSel.color, suit: gambleSel.suit, rank: gambleSel.rank };
+  gambleGuess({
+    mult: m,
+    test: (suit, rank) =>
+      (sel.color == null || (sel.color === 'red') === suit.red)
+      && (sel.suit == null || sel.suit === suit.s)
+      && (sel.rank == null || sel.rank === rank),
+  });
+}
 
 const CARD_RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 const CARD_SUITS = [
@@ -1659,19 +1702,29 @@ const CARD_SUITS = [
   { s: '♠', red: false }, { s: '♣', red: false },
 ];
 
-/* The gamble button is ALWAYS visible; it is only enabled while there is a win
- * to gamble. Otherwise it sits inactive (disabled) so the panel never reflows. */
+/* The gamble buttons (slot, blackjack, roulette) are ALWAYS visible; each is
+ * only enabled while there is a win to gamble. Otherwise it sits inactive
+ * (disabled) so the panels never reflow. All three games share one balance,
+ * so a win on any of them can be gambled from that game's own button. */
+const GAMBLE_BTN_IDS = ['#gambleBtn', '#bjGambleBtn', '#rlGambleBtn'];
+function setGambleButtons(enabled) {
+  const label = enabled ? ' — ' + fmt(state.gambleAmount) + ' €' : '';
+  for (const id of GAMBLE_BTN_IDS) {
+    const btn = $(id); if (btn) btn.disabled = !enabled;
+  }
+  const amt = $('#gambleAmt'); if (amt) amt.textContent = label;
+  const bjAmt = $('#bjGambleAmt'); if (bjAmt) bjAmt.textContent = label;
+  const rlAmt = $('#rlGambleAmt'); if (rlAmt) rlAmt.textContent = label;
+}
 function offerGamble(amount) {
   if (amount <= 0 || state.inFreeGame || state.inGoldGame) { clearGamble(); return; }
   state.gambleAmount = round2(amount);
-  const amt = $('#gambleAmt'); if (amt) amt.textContent = ' — ' + fmt(state.gambleAmount) + ' €';
-  const btn = $('#gambleBtn'); if (btn) btn.disabled = false;
+  setGambleButtons(true);
 }
 
 function clearGamble() {
   state.gambleAmount = 0;
-  const amt = $('#gambleAmt'); if (amt) amt.textContent = '';
-  const btn = $('#gambleBtn'); if (btn) btn.disabled = true;   // stays visible, just inactive
+  setGambleButtons(false);      // buttons stay visible, just inactive
   $('#gambleModal').classList.add('hidden');
 }
 
@@ -1679,13 +1732,14 @@ function openGamble() {
   if (state.gambleAmount <= 0 || state.spinning || state.inFreeGame || state.inGoldGame) return;
   gambleRounds = 0;
   gambleBusy = false;
+  resetGambleSel();        // start with no picks
   renderGambleHistory();   // keep the previous cards; the last 10 stay visible
   renderGambleOdds();      // chances from the last 10 cards
   updateGambleUI();
   const card = $('#gCard');
   card.className = 'gamble-card';
   card.innerHTML = '<span>?</span>';
-  $('#gMsg').textContent = 'Tippelj: szín ×2, szimbólum ×4 vagy lap ×13';
+  $('#gMsg').textContent = 'Válaszd ki a színt, figurát és/vagy lapot — a szorzók összeadódnak';
   $('#gMsg').className = 'gamble-msg';
   setGambleChoicesEnabled(true);
   $('#gambleModal').classList.remove('hidden');
@@ -1693,10 +1747,7 @@ function openGamble() {
 
 function updateGambleUI() {
   $('#gStake').textContent = fmt(state.gambleAmount);
-  const w2 = $('#gWin2'), w4 = $('#gWin4'), w13 = $('#gWin13');
-  if (w2) w2.textContent = fmt(round2(state.gambleAmount * 2));
-  if (w4) w4.textContent = fmt(round2(state.gambleAmount * 4));
-  if (w13) w13.textContent = fmt(round2(state.gambleAmount * 13));
+  updateGambleSelUI();     // combined multiplier + potential win
   const net = $('#gNet');
   if (net) {
     const v = round2(state.gambleNet);
@@ -1711,6 +1762,7 @@ function setGambleChoicesEnabled(on) {
   $('#gBlack').disabled = !on;
   document.querySelectorAll('#gambleModal .g-suit, #gambleModal .g-rank').forEach((b) => { b.disabled = !on; });
   $('#gCollect').disabled = !on;
+  const draw = $('#gDraw'); if (draw) draw.disabled = !on || combinedMult() <= 0 || state.gambleAmount <= 0;
 }
 
 /* Render the ladder of previously drawn cards (most recent first). */
@@ -1769,10 +1821,11 @@ async function gambleGuess(choice) {
       await sleep(1000);
       gambleCollect();
     } else {
-      $('#gMsg').textContent = 'Mehet tovább, vagy elvisz?';
+      $('#gMsg').textContent = 'Válaszd ki az új tippet, vagy elvisz?';
       $('#gMsg').className = 'gamble-msg';
-      setGambleChoicesEnabled(true);
       gambleBusy = false;
+      resetGambleSel();        // clear picks for the next round
+      setGambleChoicesEnabled(true);
     }
   } else {
     state.credit = round2(Math.max(0, state.credit - staked)); // lose the staked win (never below 0)
@@ -1965,16 +2018,18 @@ function init() {
   fxResize();
   window.addEventListener('resize', fxResize);
 
-  // Gamble wiring: colour guess = ×2, exact suit guess = ×4.
+  // Gamble wiring: pick colour (×2), suit/figure (×4) and/or rank (×13) as a
+  // parlay — the chosen multipliers are summed, and a single HÚZÁS resolves it.
   $('#gambleBtn').addEventListener('click', openGamble);
-  $('#gRed').addEventListener('click', () => gambleGuess({ mult: 2, test: (s) => s.red === true }));
-  $('#gBlack').addEventListener('click', () => gambleGuess({ mult: 2, test: (s) => s.red === false }));
+  $('#gRed').addEventListener('click', () => toggleGambleSel('color', 'red'));
+  $('#gBlack').addEventListener('click', () => toggleGambleSel('color', 'black'));
   document.querySelectorAll('#gambleModal .g-suit').forEach((b) => {
-    b.addEventListener('click', () => gambleGuess({ mult: 4, test: (s) => s.s === b.dataset.suit }));
+    b.addEventListener('click', () => toggleGambleSel('suit', b.dataset.suit));
   });
   document.querySelectorAll('#gambleModal .g-rank').forEach((b) => {
-    b.addEventListener('click', () => gambleGuess({ mult: 13, test: (s, r) => r === b.dataset.rank }));
+    b.addEventListener('click', () => toggleGambleSel('rank', b.dataset.rank));
   });
+  $('#gDraw').addEventListener('click', () => { if (!gambleBusy) gambleDraw(); });
   $('#gCollect').addEventListener('click', () => { if (!gambleBusy) gambleCollect(); });
   $('#gambleModal').addEventListener('click', (e) => {
     if (e.target.id === 'gambleModal' && !gambleBusy) gambleCollect();
