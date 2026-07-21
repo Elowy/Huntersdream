@@ -66,6 +66,7 @@
         <span class="logo-spins">SPINS</span>
       </h1>
       <button id="bjBtn" class="icon-btn" type="button" title="Blackjack asztal">🃏</button>
+      <button id="rlBtn" class="icon-btn" type="button" title="Rulett asztal">🎡</button>
       <button id="boardBtn" class="icon-btn" type="button" title="Toplista">🏆</button>
       <button id="missionsBtn" class="icon-btn" type="button" title="Küldetések">🎯</button>
       <button id="statsBtn" class="icon-btn" type="button" title="Statisztika">📊</button>
@@ -222,6 +223,41 @@
       <div class="bj-rules-note">
         6 pakli · osztó megáll soft 17-en · Blackjack fizet 3:2 · dupla &amp; split · biztosítás 2:1<br>
         Perfect Pairs 6/12/25:1 · 21+3 5–100:1 · Lucky Lucky 2–100:1
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ROULETTE TABLE (shared balance) ============ -->
+  <div class="rl-view hidden" id="rlView">
+    <header class="rl-topbar">
+      <button id="rlBackBtn" class="rl-back" type="button">🎰 Vissza a géphez</button>
+      <h2 class="rl-title">🎡 RULETT</h2>
+      <div class="rl-credit-box">KREDIT <b id="rlCredit">0.00</b> €</div>
+    </header>
+
+    <div class="rl-ballrow">
+      <div class="rl-ball green" id="rlBall">0</div>
+      <div class="rl-history" id="rlHistory"></div>
+    </div>
+
+    <div class="rl-msg" id="rlMsg">Tedd meg a téteket, majd PÖRGESS!</div>
+
+    <div class="rl-table-wrap">
+      <div class="rl-table" id="rlTable"></div>
+    </div>
+
+    <div class="rl-controls">
+      <div class="rl-chips" id="rlChips"></div>
+      <div class="rl-stakebar">Összes tét: <b id="rlStake">0.00</b> €</div>
+      <div class="rl-actions">
+        <button id="rlUndo" class="rl-btn ghost" type="button">⟲ VISSZAVON</button>
+        <button id="rlClear" class="rl-btn ghost" type="button">TÖRÖL</button>
+        <button id="rlRebet" class="rl-btn ghost" type="button">ISMÉT</button>
+        <button id="rlSpin" class="rl-btn primary" type="button">PÖRGESS</button>
+      </div>
+      <div class="rl-note">
+        Európai kerék (egy 0) · szám 35:1 · split 17:1 · utca 11:1 · sarok 8:1 · hatos sor 5:1 · tucat/oszlop 2:1 · külső tétek 1:1<br>
+        A mezőkre / a mezők közti pontokra koppintva teszed a zsetont (split, sarok, utca, hatos sor).
       </div>
     </div>
   </div>
@@ -426,5 +462,6 @@
   <script src="js/symbols.js"></script>
   <script src="js/game.js"></script>
   <script src="js/blackjack.js"></script>
+  <script src="js/roulette.js"></script>
 </body>
 </html>

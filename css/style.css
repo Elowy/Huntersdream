@@ -1289,4 +1289,78 @@ body::after {
   .bj-chip { width: 42px; height: 42px; font-size: 12px; }
 }
 
+/* ============================ ROULETTE TABLE ========================== */
+.rl-view {
+  width: 100%;
+  max-width: 760px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  margin: 0 auto;
+  padding: 10px 12px 24px;
+  color: #eaf3ea;
+}
+.rl-view * { box-sizing: border-box; }
+.rl-topbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.rl-back { flex: 0 1 auto; min-width: 0; white-space: nowrap; background: linear-gradient(180deg, #f6c445, #b8860b); color: #201400; border: none; border-radius: 9px; padding: 8px 10px; font-weight: 800; font-size: 13px; cursor: pointer; }
+.rl-title { flex: 1 1 90px; min-width: 0; text-align: center; color: var(--gold); font-size: clamp(16px, 4.5vw, 26px); letter-spacing: 1px; }
+.rl-credit-box { flex: 0 1 auto; min-width: 0; white-space: nowrap; background: #0a0d14; border: 1px solid var(--gold-deep); border-radius: 9px; padding: 8px 10px; font-weight: 800; font-size: 13px; }
+.rl-credit-box b { color: var(--green-led); font-family: "Courier New", monospace; }
+
+.rl-ballrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.rl-ball {
+  flex: 0 0 auto;
+  width: 54px; height: 54px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 24px; color: #fff;
+  border: 3px solid #f6c445; box-shadow: 0 0 14px rgba(246,196,69,0.4);
+}
+.rl-ball.green { background: #1a7a3a; }
+.rl-ball.red { background: #c41818; }
+.rl-ball.black { background: #17130d; }
+.rl-history { flex: 1 1 auto; display: flex; gap: 4px; overflow-x: auto; }
+.rl-hist { flex: 0 0 auto; min-width: 26px; text-align: center; padding: 3px 4px; border-radius: 6px; font-weight: 800; font-size: 12px; color: #fff; }
+.rl-hist.green { background: #1a7a3a; }
+.rl-hist.red { background: #c41818; }
+.rl-hist.black { background: #17130d; border: 1px solid #333; }
+
+.rl-msg { text-align: center; font-weight: 800; margin: 6px 0 8px; min-height: 20px; color: #fff; }
+
+.rl-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.rl-table { min-width: 560px; }
+.rl-svg { width: 100%; min-width: 560px; max-width: 720px; height: auto; display: block; user-select: none; }
+.rl-cell { cursor: pointer; }
+.rl-cell:hover rect { filter: brightness(1.25); }
+.rl-hot { cursor: pointer; }
+.rl-hot:hover { fill: rgba(246,196,69,0.5); }
+
+.rl-controls { margin-top: 12px; }
+.rl-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+.rl-chip {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 3px dashed #fff; color: #fff; font-weight: 900; font-size: 13px; cursor: pointer;
+  background: radial-gradient(circle at 50% 35%, #2a6cff, #14357a);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+}
+.rl-chip:nth-child(2) { background: radial-gradient(circle at 50% 35%, #ff5a5a, #a01818); }
+.rl-chip:nth-child(3) { background: radial-gradient(circle at 50% 35%, #4dff77, #1a7a3a); color: #06210f; }
+.rl-chip:nth-child(4) { background: radial-gradient(circle at 50% 35%, #2a2f38, #05070c); }
+.rl-chip:nth-child(5) { background: radial-gradient(circle at 50% 35%, #f6c445, #b8860b); color: #201400; }
+.rl-chip.active { outline: 3px solid var(--gold); transform: translateY(-3px); }
+
+.rl-stakebar { text-align: center; font-weight: 800; margin-bottom: 8px; color: #d9ffe4; }
+.rl-stakebar b { color: var(--gold); font-family: "Courier New", monospace; }
+.rl-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; max-width: 100%; }
+.rl-btn {
+  flex: 1 1 0; min-width: 62px; max-width: 200px;
+  padding: 13px 8px; border: none; border-radius: 10px;
+  background: linear-gradient(180deg, #3a4150, #262b34);
+  color: #fff; font-weight: 900; font-size: 15px; letter-spacing: .5px;
+  cursor: pointer; box-shadow: 0 3px 0 #12151b;
+}
+.rl-btn:active { transform: translateY(3px); box-shadow: 0 0 0 #12151b; }
+.rl-btn.primary { background: linear-gradient(180deg, #4dff77, #1a9a3f); color: #06210f; box-shadow: 0 3px 0 #0d5a24; }
+.rl-btn.ghost { background: linear-gradient(180deg, #2a2f38, #1a1d24); }
+.rl-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+.rl-note { margin-top: 12px; text-align: center; font-size: 11px; color: #9fb8a6; line-height: 1.5; }
+
 .hidden { display: none !important; }
