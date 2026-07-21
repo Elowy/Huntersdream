@@ -51,7 +51,7 @@ const SYMBOLS = {
   scatter: { emoji: '🏚️', name: 'BONUS',   kind: 'scatter', weight: 20, pay: {} },
   // GOLD appears only on the first and last reel; it carries a 1-9x win
   // multiplier and 3+ on the board trigger the wild bonus spins.
-  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 40, pay: {} },
+  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 30, pay: {} },
 };
 
 /* Which reels each symbol may appear on (0-indexed). Scatter only on the
@@ -125,11 +125,15 @@ const BONUS_RTP = 150;   // scatter free games are more generous than the base g
 // WILD is rare on the first two reels: reel 1 never has it, reel 2 gets only
 // this fraction of the normal weight. (The RTP calibration accounts for this.)
 const WILD_COL1_FACTOR = 0.5;
+// Recalibrated (Monte Carlo, verified against the real code) so the slider
+// value = the actual OVERALL RTP the player experiences (base game + scatter
+// free game + gold bonus), not just the base game. Measured overall ≈
+// wild_weight − 37, so wild_weight ≈ slider + 37.
 const WILD_TABLE = [
-  114, 115, 116, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 127, 128, 130, 131, 131, 132, 133, // 80-99%
-  134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 145, 146, 147, 148, 149, 150, 151, 152, // 100-119%
-  153, 154, 154, 155, 156, 157, 158, 159, 159, 160, 161, 162, 163, 163, 164, 165, 166, 167, 167, 168, // 120-139%
-  169, 170, 171, 172, 173, 173, 174, 175, 176, 177, 178,   // 140-150% (BONUS_RTP lookup)
+  117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, // 80-99%
+  137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, // 100-119%
+  157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, // 120-139%
+  177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187,   // 140-150% (unused tail)
 ];
 let activeWild = null;   // wild weight snapshot for the current spin
 function wildWeightFor(rtp) {
@@ -1016,6 +1020,7 @@ function topUp() {
  * so the net +/- result is unchanged (realized profit, not a loss). */
 function withdraw() {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  clearGamble();   // a pending gamble win already sits in credit — drop the offer before cashing out
   if (state.credit < WITHDRAW_AMOUNT) {
     showWinPopup('NINCS ELÉG KREDIT');
     SFX.play('gambleLose');
@@ -1383,6 +1388,9 @@ async function doSpin() {
   } catch (err) {
     console.error('spin error', err);       // never leave the game frozen
     stopAutoplay();
+    // A bonus must never be left half-open: bank whatever accumulated and exit,
+    // otherwise inFreeGame/inGoldGame stay set and soft-lock the machine.
+    try { if (state.inFreeGame) endFreeGame(); else if (state.inGoldGame) endGoldGame(); } catch (e) { /* ignore */ }
   } finally {
     activeWild = null;
     state.spinning = false;
@@ -1578,12 +1586,9 @@ async function freeSpinRound() {
     await presentWins(result, { fast: true, bonus: true });
     hideWinPopup();
   }
-
-  // Retrigger: 3 scatters during free game award another 10.
-  const finalEval = evaluateGrid();
-  if (finalEval.scatterCount >= 3) {
-    await triggerFreeGames(finalEval);
-  }
+  // No scatter retrigger: the free game deliberately has no scatter symbols
+  // (they are excluded in reelSymbols while inFreeGame), so there is nothing
+  // to retrigger on.
 }
 
 /* ------------------------------ Controls -------------------------------- */
@@ -1598,10 +1603,10 @@ function changeBet(dir) {
 
 function maxBet() {
   if (state.spinning || state.inFreeGame || state.inGoldGame || state.auto) return;
-  state.betIndex = BET_STEPS.length - 1;
+  state.betIndex = BET_STEPS.length - 1;   // just set the max bet (like TÉT +/−); no auto-spin
+  SFX.play('click');
   updateMeters();
   saveGame();
-  doSpin();
 }
 
 /* ------------------------------- RTP slider ----------------------------- */
@@ -1770,7 +1775,7 @@ async function gambleGuess(choice) {
       gambleBusy = false;
     }
   } else {
-    state.credit = round2(state.credit - staked);          // lose the staked win
+    state.credit = round2(Math.max(0, state.credit - staked)); // lose the staked win (never below 0)
     state.gambleAmount = 0;
     state.lastWin = 0;
     state.gambleNet = round2(state.gambleNet - staked);    // +/- statistics
@@ -1994,6 +1999,6 @@ document.addEventListener('DOMContentLoaded', init);
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
   MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar, updateJackpot,
-  setControlsEnabled, stopAutoplay,
+  setControlsEnabled, stopAutoplay, endFreeGame, endGoldGame, maxBet,
   // shared-balance API for the blackjack table (js/blackjack.js)
   saveGame, round2, fmt };
