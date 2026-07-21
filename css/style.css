@@ -68,12 +68,79 @@ body::after {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   position: relative;
   margin-bottom: 12px;
 }
+.topbar-right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+/* Hamburger button + slide-down menu holding the secondary functions. */
+.hamburger-btn {
+  flex: 0 0 auto;
+  background: #2a1c0e;
+  color: var(--gold);
+  border: 2px solid var(--gold-deep);
+  border-radius: 8px;
+  padding: 4px 11px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.hamburger-btn:hover { background: #3a2712; }
+.hamburger-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 3px;
+  min-width: 190px;
+  padding: 6px;
+  background: #14100a;
+  border: 2px solid var(--gold-deep);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+}
+.hm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: #e7d3a0;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.hm-item:hover { background: #2a1c0e; }
+.hm-item.active { background: var(--gold); color: #2a1a08; }
+.hm-emoji { font-size: 17px; width: 22px; text-align: center; flex: 0 0 auto; }
+
+/* Combo streak counter — grows (scale) and reddens toward maroon as it climbs. */
+.combo-counter {
+  --combo-scale: 1;
+  --combo-bg: hsl(0 75% 50%);
+  display: none;
+  transform-origin: right center;
+  transform: scale(var(--combo-scale));
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--combo-bg);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 0 10px rgba(255,60,60,0.5);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  transition: transform .18s cubic-bezier(0.34,1.56,0.64,1), background .25s ease;
+}
+.combo-counter.show { display: inline-block; animation: comboPop .25s ease; }
+@keyframes comboPop { 0% { transform: scale(calc(var(--combo-scale) * 1.35)); } 100% { transform: scale(var(--combo-scale)); } }
 .logo {
   font-weight: 900;
   font-size: clamp(18px, 5vw, 48px);
@@ -659,7 +726,16 @@ body::after {
   width: 100%;
   max-width: 380px;
   text-align: center;
+  /* The parlay modal is tall (colour + suit + rank + actions); on short phone
+   * screens it must scroll inside itself instead of clipping off-screen. */
+  max-height: 92vh;                    /* fallback for browsers without dvh */
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
+.gamble-box::-webkit-scrollbar { width: 6px; }
+.gamble-box::-webkit-scrollbar-thumb { background: rgba(246,196,69,0.4); border-radius: 3px; }
 .gamble-box h2 { color: var(--gold); margin-bottom: 12px; letter-spacing: 1px; }
 .gamble-amounts {
   display: flex;
@@ -754,12 +830,36 @@ body::after {
 /* ---------- Gamble: history ladder + suit (×4) buttons ---------- */
 .gamble-history {
   display: flex;
-  gap: 5px;
-  justify-content: center;
-  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-start;
+  overflow-x: auto;
   min-height: 34px;
   margin-bottom: 10px;
+  padding-bottom: 3px;
+  scrollbar-width: thin;
 }
+.gamble-history:not(:has(.gh-item)) { justify-content: center; }   /* centre the empty label */
+.gamble-history::-webkit-scrollbar { height: 5px; }
+.gamble-history::-webkit-scrollbar-thumb { background: rgba(246,196,69,0.4); border-radius: 3px; }
+/* Each ladder entry: the drawn card + a small caption naming the parlay (kötés)
+ * and the value it was played for. */
+.gh-item {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 40px;
+}
+.gh-meta {
+  font-size: 9px;
+  line-height: 1.15;
+  color: #c9b98a;
+  text-align: center;
+  white-space: nowrap;
+}
+.gh-meta .win { color: var(--green-led); font-weight: 800; }
+.gh-meta .lose { color: #ff6a6a; font-weight: 800; }
 .gh-empty { color: #7a8090; font-size: 12px; align-self: center; }
 .gh-card {
   width: 26px;
@@ -1140,9 +1240,8 @@ body::after {
   body:not(.ls-off) .panel .footer { margin-top: auto; }
 }
 
-/* ---------------- Engagement: infobar (level / jackpot / combo) --------- */
-/* Single-line info strip: never wraps, so nothing below ever shifts. The
- * three chips shrink to fit; the jackpot value stays fully visible. */
+/* ---------------- Engagement: infobar (level / XP) --------------------- */
+/* Single-line info strip: never wraps, so nothing below ever shifts. */
 .infobar {
   display: flex;
   gap: 6px;
@@ -1150,7 +1249,7 @@ body::after {
   margin: 4px 0 8px;
   flex-wrap: nowrap;
 }
-.ib-level, .ib-jackpot {
+.ib-level {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1160,44 +1259,14 @@ body::after {
   border: 1px solid #2a2f3a;
   font-weight: 800;
   font-size: 12px;
+  cursor: pointer;
+  color: #e7d3a0;
+  flex: 0 0 auto;
 }
-.ib-level { cursor: pointer; color: #e7d3a0; flex: 0 0 auto; }
 .ib-level:hover { border-color: var(--gold-deep); }
 .ib-lvl { color: var(--gold); white-space: nowrap; }
 .ib-xp { position: relative; width: 44px; height: 7px; border-radius: 5px; background: #05070c; overflow: hidden; box-shadow: inset 0 0 0 1px #2a2f3a; }
 .ib-xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width .4s ease; }
-.ib-jackpot {
-  flex: 1 1 auto;
-  min-width: 0;
-  justify-content: space-between;
-  overflow: hidden;
-  border-color: var(--gold-deep);
-  background: linear-gradient(90deg, #1a1405, #241a06);
-}
-.ib-jp-label { flex: 0 0 auto; white-space: nowrap; color: var(--gold); letter-spacing: .03em; }
-/* The word "JACKPOT" only appears when there's room (wider screens); on phones
- * the 💎 + value alone keeps the strip to a single tidy line. */
-.jp-word { display: none; }
-@media (min-width: 560px) { .jp-word { display: inline; } }
-.ib-jp-val { flex: 0 0 auto; white-space: nowrap; color: #fff3cf; font-family: "Courier New", monospace; font-weight: 900; text-shadow: 0 0 8px rgba(246,196,69,.5); }
-
-/* ---------------- Missions modal --------------------------------------- */
-.mission-list { list-style: none; padding: 0; margin: 8px 0 0; text-align: left; }
-.mission-row {
-  padding: 9px 12px;
-  border-radius: 10px;
-  background: #0a0d14;
-  border: 1px solid #2a2f3a;
-  margin-bottom: 8px;
-}
-.mission-row.done { border-color: var(--gold-deep); background: #14140a; }
-.mr-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.mr-label { color: #e7d3a0; font-weight: 700; }
-.mr-reward { color: var(--gold); font-weight: 900; white-space: nowrap; }
-.mr-bar { position: relative; height: 7px; border-radius: 5px; background: #05070c; overflow: hidden; margin: 6px 0 3px; box-shadow: inset 0 0 0 1px #2a2f3a; }
-.mr-bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); }
-.mission-row.done .mr-bar i { background: linear-gradient(90deg, #4dff77, #2ecc71); }
-.mr-prog { font-size: 11px; color: #9aa3b2; text-align: right; }
 
 /* ---------------- Statistics modal ------------------------------------- */
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
@@ -1477,3 +1546,81 @@ body::after {
 .rl-note { margin-top: 12px; text-align: center; font-size: 11px; color: #9fb8a6; line-height: 1.5; }
 
 .hidden { display: none !important; }
+
+/* ===================== Lucky Sevens — second 3x3 slot ==================== */
+.sv-view {
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  margin: 0 auto;
+  padding: 10px 12px 24px;
+  color: #eaf3ea;
+}
+.sv-view * { box-sizing: border-box; }
+.sv-topbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.sv-back { flex: 0 1 auto; white-space: nowrap; background: linear-gradient(180deg, #f6c445, #b8860b); color: #201400; border: none; border-radius: 9px; padding: 8px 10px; font-weight: 800; font-size: 13px; cursor: pointer; }
+.sv-title { flex: 1 1 auto; text-align: center; color: var(--gold); font-size: clamp(16px, 4.5vw, 26px); white-space: nowrap; }
+.sv-credit-box { flex: 0 1 auto; white-space: nowrap; background: #0a0d14; border: 1px solid var(--gold-deep); border-radius: 9px; padding: 8px 10px; font-weight: 800; font-size: 13px; }
+.sv-credit-box b { color: var(--green-led); font-family: "Courier New", monospace; }
+
+.sv-machine {
+  background: linear-gradient(180deg, #241a06, #120c02);
+  border: 3px solid var(--gold-deep);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: inset 0 0 24px rgba(0,0,0,0.7), 0 0 0 3px #c9962e;
+}
+.sv-reels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sv-reel { display: grid; grid-template-rows: repeat(3, 1fr); gap: 8px; }
+.sv-cell {
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 35%, #fbfbf3, #dedcc6);
+  border-radius: 10px;
+  border: 2px solid #b8b090;
+  font-size: clamp(26px, 9vw, 52px);
+  line-height: 1;
+  overflow: hidden;
+}
+.sv-cell > span { display: flex; align-items: center; justify-content: center; font-weight: 900; }
+.sv-seven > span { color: #d81e1e; font-family: "Arial Black", system-ui, sans-serif; text-shadow: 0 2px 0 #7a0d0d; }
+.sv-bar > span { color: #b8860b; font-size: 0.42em; letter-spacing: 1px; background: linear-gradient(180deg, #ffe27a, #d19a12); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; padding: 2px 4px; border: 2px solid #d19a12; border-radius: 5px; }
+.sv-pstar > span { color: #b04dff; text-shadow: 0 0 8px rgba(176,77,255,0.6); }
+.sv-gstar > span { color: #3ad14d; text-shadow: 0 0 8px rgba(58,209,77,0.6); }
+.sv-cell.sv-hit { animation: svHit 0.5s ease infinite alternate; border-color: var(--gold); box-shadow: 0 0 14px rgba(246,196,69,0.8); }
+.sv-cell.sv-wild { border-color: #d81e1e; box-shadow: 0 0 16px rgba(216,30,30,0.85); background: radial-gradient(circle at 50% 35%, #fff0d8, #ffd27a); }
+@keyframes svHit { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+.sv-msg { text-align: center; min-height: 22px; margin-top: 10px; font-weight: 800; color: #e7d3a0; }
+.sv-msg.win { color: var(--green-led); }
+.sv-msg.lose { color: #ff6a6a; }
+.sv-msg.bonus { color: var(--gold); text-shadow: 0 0 10px rgba(246,196,69,0.7); }
+
+.sv-meters { display: flex; gap: 8px; margin: 12px 0 8px; }
+.sv-meter { flex: 1; text-align: center; background: #05070d; border: 2px solid var(--gold-deep); border-radius: 8px; padding: 7px; }
+.sv-meter span { display: block; font-size: 10px; letter-spacing: 1px; color: #c9a24a; }
+.sv-meter b { font-family: "Courier New", monospace; font-size: clamp(16px, 4.5vw, 22px); color: #fff; }
+.sv-meter.win b { color: var(--green-led); }
+
+.sv-controls { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 8px; }
+.sv-btn { padding: 13px 6px; border: 2px solid #7a5410; border-radius: 10px; background: linear-gradient(180deg, #3a2a12, #241809); color: var(--gold); font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: 0 3px 0 #140d04; }
+.sv-btn:active { transform: translateY(3px); box-shadow: none; }
+.sv-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sv-btn.primary { background: linear-gradient(180deg, #7dff9a, #23a544); color: #06210f; border-color: #12622a; box-shadow: 0 3px 0 #0d4a20; }
+
+.sv-gamble-btn {
+  display: block; width: 100%; margin: 8px 0 4px;
+  padding: 10px; border: 2px solid #7a5a10; border-radius: 10px;
+  background: linear-gradient(180deg, #ffd76a, #e0a020); color: #3a2600;
+  font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: 0 3px 0 #7a5a10;
+}
+.sv-gamble-btn:active { transform: translateY(3px); box-shadow: none; }
+.sv-gamble-btn:disabled { opacity: 0.4; cursor: not-allowed; background: linear-gradient(180deg, #6a6250, #4a4638); color: #cbbf9a; box-shadow: 0 3px 0 #2a2620; }
+
+.sv-paytable { margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sv-pt-row { display: flex; align-items: center; gap: 6px; background: #0a0d14; border: 1px solid #2a2f3a; border-radius: 8px; padding: 6px 8px; font-size: 12px; color: #d9ffe4; }
+.sv-pt-row b { color: var(--gold); }
+.sv-cell.mini { width: 26px; height: 26px; aspect-ratio: auto; flex: 0 0 auto; font-size: 16px; border-width: 1px; border-radius: 6px; }
+.sv-cell.mini.sv-bar > span { font-size: 8px; border-width: 1px; padding: 1px 2px; }
+.sv-pt-note { grid-column: 1 / -1; text-align: center; font-size: 11px; color: #c9a24a; margin-top: 2px; }

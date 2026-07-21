@@ -65,27 +65,32 @@
         <span class="logo-adventure">ADVENTURE</span>
         <span class="logo-spins">SPINS</span>
       </h1>
-      <button id="bjBtn" class="icon-btn" type="button" title="Blackjack asztal">🃏</button>
-      <button id="rlBtn" class="icon-btn" type="button" title="Rulett asztal">🎡</button>
-      <button id="boardBtn" class="icon-btn" type="button" title="Toplista">🏆</button>
-      <button id="missionsBtn" class="icon-btn" type="button" title="Küldetések">🎯</button>
-      <button id="statsBtn" class="icon-btn" type="button" title="Statisztika">📊</button>
-      <button id="turboBtn" class="icon-btn" type="button" title="Villám — gyors pörgetés">⚡</button>
-      <button id="musicBtn" class="icon-btn" type="button" title="Háttérzene">🎵</button>
-      <button id="muteBtn" class="icon-btn" type="button" title="Hang">🔊</button>
-      <button id="rulesBtn" class="rules-btn" type="button">Szabályok</button>
+      <div class="topbar-right">
+        <!-- Combo streak counter: grows + reddens (to maroon) as wins stack. -->
+        <span class="combo-counter" id="comboCounter"></span>
+        <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Menü" aria-expanded="false" aria-controls="hamburgerMenu">☰</button>
+      </div>
     </header>
 
-    <!-- Engagement info strip: level + XP, progressive jackpot -->
+    <!-- Slide-down menu holding all the secondary functions. -->
+    <nav class="hamburger-menu hidden" id="hamburgerMenu" aria-label="Funkciók">
+      <button id="bjBtn" class="hm-item" type="button"><span class="hm-emoji">🃏</span><span>Blackjack</span></button>
+      <button id="rlBtn" class="hm-item" type="button"><span class="hm-emoji">🎡</span><span>Rulett</span></button>
+      <button id="s2Btn" class="hm-item" type="button"><span class="hm-emoji">🎰</span><span>Lucky Sevens</span></button>
+      <button id="boardBtn" class="hm-item" type="button"><span class="hm-emoji">🏆</span><span>Toplista</span></button>
+      <button id="statsBtn" class="hm-item" type="button"><span class="hm-emoji">📊</span><span>Statisztika</span></button>
+      <button id="turboBtn" class="hm-item" type="button"><span class="hm-emoji">⚡</span><span>Villám mód</span></button>
+      <button id="musicBtn" class="hm-item" type="button"><span class="hm-emoji">🎵</span><span>Háttérzene</span></button>
+      <button id="muteBtn" class="hm-item" type="button"><span class="hm-emoji" id="muteIcon">🔊</span><span>Hang</span></button>
+      <button id="rulesBtn" class="hm-item" type="button"><span class="hm-emoji">📖</span><span>Szabályok</span></button>
+    </nav>
+
+    <!-- Engagement info strip: level + XP -->
     <div class="infobar">
-      <button class="ib-level" id="levelChip" type="button" title="Szint & küldetések">
+      <button class="ib-level" id="levelChip" type="button" title="Szint & statisztika">
         <span class="ib-lvl">Lv <b id="lvlNum">1</b></span>
         <span class="ib-xp"><i id="xpFill"></i></span>
       </button>
-      <div class="ib-jackpot" id="jackpotChip" title="Progresszív jackpot">
-        <span class="ib-jp-label">💎 <span class="jp-word">JACKPOT</span></span>
-        <span class="ib-jp-val" id="jackpotVal">0.00 €</span>
-      </div>
     </div>
 
     <!-- Free spins banner -->
@@ -281,6 +286,39 @@
     </div>
   </div>
 
+  <!-- ===================== LUCKY SEVENS (3x3 slot, shared balance) ====== -->
+  <div class="sv-view hidden" id="s2View">
+    <header class="sv-topbar">
+      <button id="s2BackBtn" class="sv-back" type="button">🎰 Vissza a géphez</button>
+      <h2 class="sv-title">🎰 LUCKY SEVENS</h2>
+      <div class="sv-credit-box">KREDIT <b id="s2Credit">0.00</b> €</div>
+    </header>
+
+    <div class="sv-machine">
+      <div class="sv-reels" id="s2Reels"></div>
+      <div class="sv-msg" id="s2Msg">Tedd meg a téted, majd PÖRGESS!</div>
+    </div>
+
+    <div class="sv-meters">
+      <div class="sv-meter"><span>TÉT</span><b id="s2Bet">1.00</b></div>
+      <div class="sv-meter win"><span>NYEREMÉNY</span><b id="s2Win">0.00</b></div>
+    </div>
+
+    <div class="sv-controls">
+      <button id="s2BetMinus" class="sv-btn" type="button">TÉT −</button>
+      <button id="s2BetPlus" class="sv-btn" type="button">TÉT +</button>
+      <button id="s2Spin" class="sv-btn primary" type="button">PÖRGESS</button>
+    </div>
+    <button id="s2GambleBtn" class="sv-gamble-btn" type="button" disabled>🃏 DUPLÁZÁS<span id="s2GambleAmt"></span></button>
+
+    <div class="round-history">
+      <span class="rh-label">Utolsó 20 kör</span>
+      <div class="rh-strip" id="s2RoundHistory"></div>
+    </div>
+
+    <div class="sv-paytable" id="s2Paytable"></div>
+  </div>
+
   <!-- Rules modal -->
   <div class="modal hidden" id="rulesModal">
     <div class="modal-box">
@@ -332,11 +370,8 @@
             a <b>teljes nyereményt</b> szorozza.
             <b>3 vagy több GOLD</b> a pályán <b>5 pörgetést</b> indít, amelyben
             <b>több WILD</b> jelenik meg.</li>
-        <li><b>💎 Progresszív jackpot:</b> minden pörgetés hizlalja a közös
-            jackpotot, ami <b>véletlenszerűen</b> bárkinek kifizethet.</li>
         <li><b>⭐ Szint & XP:</b> pörgetésekért XP jár; szintlépéskor
-            <b>kredit-jutalmat</b> kapsz. <b>🎯 Küldetések:</b> teljesíthető
-            kihívások, a jutalom automatikusan jóváíródik.</li>
+            <b>kredit-jutalmat</b> kapsz.</li>
         <li><b>DUPLÁZÁS:</b> nyeremény után (a <b>bónusznyeremény</b> is)
             kockáztathatsz — találd el a lap <b>színét</b> (piros/fekete) a
             nyereményed <b>×2</b>-éért, a pontos <b>szimbólumot</b> (♥ ♦ ♠ ♣)
@@ -448,15 +483,6 @@
     </div>
   </div>
 
-  <!-- Missions (küldetések) modal -->
-  <div class="modal hidden" id="missionModal">
-    <div class="modal-box">
-      <button class="modal-close" id="missionClose" type="button">✕</button>
-      <h2>🎯 KÜLDETÉSEK</h2>
-      <p class="board-sub">Teljesítsd a kihívásokat — a jutalom automatikusan jóváíródik. <b id="missionSub"></b></p>
-      <ul class="mission-list" id="missionList"></ul>
-    </div>
-  </div>
 
   <!-- Statistics (statisztika) modal -->
   <div class="modal hidden" id="statsModal">
@@ -471,7 +497,6 @@
         <div class="stat-cell"><span class="sc-label">Leghosszabb sorozat</span><span class="sc-value" id="stStreak">0</span></div>
         <div class="stat-cell"><span class="sc-label">Tapasztalati RTP</span><span class="sc-value" id="stRtp">—</span></div>
         <div class="stat-cell"><span class="sc-label">Szint</span><span class="sc-value" id="stLevel">1</span></div>
-        <div class="stat-cell"><span class="sc-label">Jackpot ütések</span><span class="sc-value" id="stJackpots">0</span></div>
       </div>
       <p class="rtp-note">A tapasztalati RTP a saját eddigi nyereményed a megtett téthez képest — rövid távon erősen ingadozik, hosszú távon a beállított szint felé tart.</p>
     </div>
@@ -485,5 +510,6 @@
   <script src="js/game.js"></script>
   <script src="js/blackjack.js"></script>
   <script src="js/roulette.js"></script>
+  <script src="js/slot2.js"></script>
 </body>
 </html>
