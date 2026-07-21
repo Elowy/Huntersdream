@@ -659,7 +659,16 @@ body::after {
   width: 100%;
   max-width: 380px;
   text-align: center;
+  /* The parlay modal is tall (colour + suit + rank + actions); on short phone
+   * screens it must scroll inside itself instead of clipping off-screen. */
+  max-height: 92vh;                    /* fallback for browsers without dvh */
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
+.gamble-box::-webkit-scrollbar { width: 6px; }
+.gamble-box::-webkit-scrollbar-thumb { background: rgba(246,196,69,0.4); border-radius: 3px; }
 .gamble-box h2 { color: var(--gold); margin-bottom: 12px; letter-spacing: 1px; }
 .gamble-amounts {
   display: flex;

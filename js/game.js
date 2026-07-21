@@ -1343,9 +1343,6 @@ async function doSpin() {
   // A spin is free (no stake) during scatter free games or gold bonus spins.
   const goldSpinNow = state.inGoldGame;
   const freeMode = state.inFreeGame || state.inGoldGame;
-  // Whether this spin was auto-initiated. Captured up front so the gamble is
-  // never offered on an autoplay spin, even if autoplay is stopped mid-flight.
-  const wasAuto = state.auto;
 
   if (!freeMode) {
     if (state.credit < totalBet()) {
@@ -1384,7 +1381,10 @@ async function doSpin() {
       const bigStop = !goldSpinNow && state.auto && state.autoStopBig
         && result.totalWin >= totalBet() * 20;
       if (bigStop) stopAutoplay();
-      await settleResult(result, goldSpinNow, wasAuto && !bigStop);
+      // Suppress the gamble only while autoplay is STILL running. If the player
+      // hit STOP during this spin (or a big-win stop fired), autoplay is now off
+      // and the winning spin becomes gambleable — like a manual spin.
+      await settleResult(result, goldSpinNow, state.auto);
       if (!goldSpinNow) {
         recordBaseSpin(totalBet(), result.totalWin);   // stats, XP, jackpot growth, missions
         await maybeHitJackpot();                        // rare progressive-jackpot hit
@@ -1439,8 +1439,11 @@ async function doSpin() {
   }
 }
 
-/* Settle a base-game or gold-bonus spin result. */
-async function settleResult(result, isFree, wasAuto) {
+/* Settle a base-game or gold-bonus spin result. `autoOngoing` is true only
+ * while autoplay is still running, in which case the win is NOT offered for
+ * gamble (autoplay keeps rolling). Once autoplay stops — manual STOP, a big-win
+ * stop, or the count running out — a winning spin becomes gambleable. */
+async function settleResult(result, isFree, autoOngoing) {
   if (result.totalWin > 0) {
     if (result.goldCount > 0) await revealGoldMultipliers();  // #8: reveal only on a win
     await presentWins(result, { fast: state.auto || isFree, bonus: isFree });
@@ -1456,8 +1459,8 @@ async function settleResult(result, isFree, wasAuto) {
     } else if (result.goldCount >= GOLD_TRIGGER) {
       if (state.auto && state.autoStopBonus) stopAutoplay();
       await triggerGoldGame(result);
-    } else if (result.totalWin > 0 && !wasAuto) {
-      offerGamble(result.totalWin);        // base win -> gamble (never on an autoplay spin)
+    } else if (result.totalWin > 0 && !autoOngoing) {
+      offerGamble(result.totalWin);        // base win -> gamble (offered once autoplay is stopped)
     }
   } else if (state.inGoldGame && result.goldCount >= GOLD_TRIGGER) {
     await triggerGoldGame(result);         // retrigger more gold spins
