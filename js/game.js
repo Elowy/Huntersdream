@@ -51,7 +51,7 @@ const SYMBOLS = {
   scatter: { emoji: '🏚️', name: 'BONUS',   kind: 'scatter', weight: 20, pay: {} },
   // GOLD appears only on the first and last reel; it carries a 1-9x win
   // multiplier and 3+ on the board trigger the wild bonus spins.
-  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 40, pay: {} },
+  gold:    { emoji: '🪙', name: 'GOLD',    kind: 'gold', weight: 30, pay: {} },
 };
 
 /* Which reels each symbol may appear on (0-indexed). Scatter only on the
@@ -125,11 +125,15 @@ const BONUS_RTP = 150;   // scatter free games are more generous than the base g
 // WILD is rare on the first two reels: reel 1 never has it, reel 2 gets only
 // this fraction of the normal weight. (The RTP calibration accounts for this.)
 const WILD_COL1_FACTOR = 0.5;
+// Recalibrated (Monte Carlo, verified against the real code) so the slider
+// value = the actual OVERALL RTP the player experiences (base game + scatter
+// free game + gold bonus), not just the base game. Measured overall ≈
+// wild_weight − 37, so wild_weight ≈ slider + 37.
 const WILD_TABLE = [
-  114, 115, 116, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 127, 128, 130, 131, 131, 132, 133, // 80-99%
-  134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 144, 145, 146, 147, 148, 149, 150, 151, 152, // 100-119%
-  153, 154, 154, 155, 156, 157, 158, 159, 159, 160, 161, 162, 163, 163, 164, 165, 166, 167, 167, 168, // 120-139%
-  169, 170, 171, 172, 173, 173, 174, 175, 176, 177, 178,   // 140-150% (BONUS_RTP lookup)
+  117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, // 80-99%
+  137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, // 100-119%
+  157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, // 120-139%
+  177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187,   // 140-150% (unused tail)
 ];
 let activeWild = null;   // wild weight snapshot for the current spin
 function wildWeightFor(rtp) {
