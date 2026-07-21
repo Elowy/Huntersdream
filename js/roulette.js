@@ -178,6 +178,8 @@
     if (spinning) return;
     const d = defByKey[key]; if (!d) return;
     if (totalStaked() + activeChip > credit()) { flash('Nincs elég kredit ehhez a téthez.'); return; }
+    // Building a new bet abandons any pending gamble offer (win stays in credit).
+    if (!totalStaked() && window.HD && window.HD.clearGamble) window.HD.clearGamble();
     if (!bets[key]) bets[key] = { def: d, amount: 0 };
     bets[key].amount = r2(bets[key].amount + activeChip);
     placeOrder.push({ key, amount: activeChip });
@@ -247,6 +249,8 @@
     spinning = false;
     setBusy(false);
     renderChips(); renderInfo();
+    // Offer to gamble the round's net profit (shared with the slot/blackjack).
+    if (window.HD && window.HD.offerGamble) window.HD.offerGamble(net > 0 ? net : 0);
   }
 
   const colorHu = (n) => (n === 0 ? '🟢' : (RED.has(n) ? '🔴' : '⚫'));
@@ -332,6 +336,7 @@
     on('#rlClear', clearBets);
     on('#rlUndo', undo);
     on('#rlRebet', rebet);
+    on('#rlGambleBtn', () => { if (window.HD && window.HD.openGamble) window.HD.openGamble(); });
     renderInfo();
   }
   document.addEventListener('DOMContentLoaded', wire);

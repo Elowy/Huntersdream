@@ -170,6 +170,8 @@
     bj.phase = 'bet';
     bj.dealer = []; bj.hideHole = true; bj.hands = []; bj.active = 0; bj.insurance = 0;
     bj.bets = { main: 0, pp: 0, t3: 0, ll: 0 };
+    // Starting a new round abandons any pending gamble offer (win stays in credit).
+    if (window.HD && window.HD.clearGamble) window.HD.clearGamble();
   }
 
   /* --------------------------- Deal ------------------------------------ */
@@ -186,6 +188,7 @@
     const stake = totalStaked();
     if (stake > credit()) { flash('Nincs elég kredit.'); return; }
     ensureShoe();
+    bj.roundStartCredit = credit();       // snapshot for round net (used by the gamble offer)
     adjust(-stake);                       // take all bets up front
     bj.lastBets = Object.assign({}, bj.bets);
     bj.sideMsgs = [];
@@ -341,6 +344,11 @@
     bj.msg = msg ? msg : results.join(' · ');
     bj.lastBets = Object.assign({}, bj.bets);
     render();
+    // Offer to gamble this round's net profit (shared with the slot/roulette).
+    if (window.HD && window.HD.offerGamble) {
+      const net = r2(credit() - (bj.roundStartCredit || 0));
+      window.HD.offerGamble(net > 0 ? net : 0);
+    }
   }
 
   /* --------------------------- Rendering ------------------------------- */
@@ -447,6 +455,7 @@
     on('#bjSplit', () => { if (window.SFX) SFX.play('cardFlip'); split(); });
     on('#bjInsYes', () => takeInsurance(true));
     on('#bjInsNo', () => takeInsurance(false));
+    on('#bjGambleBtn', () => { if (window.HD && window.HD.openGamble) window.HD.openGamble(); });
     newRound();
   }
 
