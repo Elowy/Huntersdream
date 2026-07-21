@@ -413,6 +413,7 @@
     const bv = $('#bjView'), cab = $('#slotView');
     if (!bv || !cab) return;
     if (window.HD && window.HD.stopAutoplay) window.HD.stopAutoplay();
+    if (window.HD && window.HD.clearGamble) window.HD.clearGamble();  // drop any pending slot gamble (win stays in credit)
     cab.classList.add('hidden');
     bv.classList.remove('hidden');
     if (!bj) newRound(); else { sync(); render(); }

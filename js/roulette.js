@@ -263,6 +263,7 @@
     const rv = $('#rlView'), cab = $('#slotView');
     if (!rv || !cab) return;
     if (window.HD && window.HD.stopAutoplay) window.HD.stopAutoplay();
+    if (window.HD && window.HD.clearGamble) window.HD.clearGamble();  // drop any pending slot gamble (win stays in credit)
     cab.classList.add('hidden');
     const bv = $('#bjView'); if (bv) bv.classList.add('hidden');
     rv.classList.remove('hidden');

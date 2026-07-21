@@ -1016,6 +1016,7 @@ function topUp() {
  * so the net +/- result is unchanged (realized profit, not a loss). */
 function withdraw() {
   if (state.spinning || state.inFreeGame || state.inGoldGame) return;
+  clearGamble();   // a pending gamble win already sits in credit — drop the offer before cashing out
   if (state.credit < WITHDRAW_AMOUNT) {
     showWinPopup('NINCS ELÉG KREDIT');
     SFX.play('gambleLose');
@@ -1383,6 +1384,9 @@ async function doSpin() {
   } catch (err) {
     console.error('spin error', err);       // never leave the game frozen
     stopAutoplay();
+    // A bonus must never be left half-open: bank whatever accumulated and exit,
+    // otherwise inFreeGame/inGoldGame stay set and soft-lock the machine.
+    try { if (state.inFreeGame) endFreeGame(); else if (state.inGoldGame) endGoldGame(); } catch (e) { /* ignore */ }
   } finally {
     activeWild = null;
     state.spinning = false;
@@ -1578,12 +1582,9 @@ async function freeSpinRound() {
     await presentWins(result, { fast: true, bonus: true });
     hideWinPopup();
   }
-
-  // Retrigger: 3 scatters during free game award another 10.
-  const finalEval = evaluateGrid();
-  if (finalEval.scatterCount >= 3) {
-    await triggerFreeGames(finalEval);
-  }
+  // No scatter retrigger: the free game deliberately has no scatter symbols
+  // (they are excluded in reelSymbols while inFreeGame), so there is nothing
+  // to retrigger on.
 }
 
 /* ------------------------------ Controls -------------------------------- */
@@ -1598,10 +1599,10 @@ function changeBet(dir) {
 
 function maxBet() {
   if (state.spinning || state.inFreeGame || state.inGoldGame || state.auto) return;
-  state.betIndex = BET_STEPS.length - 1;
+  state.betIndex = BET_STEPS.length - 1;   // just set the max bet (like TÉT +/−); no auto-spin
+  SFX.play('click');
   updateMeters();
   saveGame();
-  doSpin();
 }
 
 /* ------------------------------- RTP slider ----------------------------- */
@@ -1770,7 +1771,7 @@ async function gambleGuess(choice) {
       gambleBusy = false;
     }
   } else {
-    state.credit = round2(state.credit - staked);          // lose the staked win
+    state.credit = round2(Math.max(0, state.credit - staked)); // lose the staked win (never below 0)
     state.gambleAmount = 0;
     state.lastWin = 0;
     state.gambleNet = round2(state.gambleNet - staked);    // +/- statistics
@@ -1994,6 +1995,6 @@ document.addEventListener('DOMContentLoaded', init);
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
   MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar, updateJackpot,
-  setControlsEnabled, stopAutoplay,
+  setControlsEnabled, stopAutoplay, endFreeGame, endGoldGame, maxBet,
   // shared-balance API for the blackjack table (js/blackjack.js)
   saveGame, round2, fmt };
