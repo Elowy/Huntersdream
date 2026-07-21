@@ -125,10 +125,11 @@ const BONUS_RTP = 150;   // scatter free games are more generous than the base g
 // WILD is rare on the first two reels: reel 1 never has it, reel 2 gets only
 // this fraction of the normal weight. (The RTP calibration accounts for this.)
 const WILD_COL1_FACTOR = 0.5;
-// Recalibrated (Monte Carlo, verified against the real code) so the slider
-// value = the actual OVERALL RTP the player experiences (base game + scatter
-// free game + gold bonus), not just the base game. Measured overall ≈
-// wild_weight − 37, so wild_weight ≈ slider + 37.
+// The slider sets the base-game WILD frequency (wild_weight ≈ slider + 37).
+// The base game's own RTP is ≈ slider − 8; the free game and gold bonus add a
+// few more points on top. With the lean free game (FREE_WILD_WEIGHT) the
+// OVERALL long-term RTP (base + free + gold) at the default slider stays just
+// under 95% — deliberately house-favourable, never running hot.
 const WILD_TABLE = [
   117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, // 80-99%
   137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, // 100-119%
@@ -145,7 +146,13 @@ function wildWeightFor(rtp) {
 /* EXPANDING WILD lives in the free game: a landed wild fills its whole reel.
  * That makes wilds very powerful, so the free-game wild weight is retuned
  * (much lower) to keep the free contribution ~in line with before. */
-const FREE_WILD_WEIGHT = 80;
+/* Expanding wilds make the free game very powerful (a landed wild fills its
+ * whole reel, and lines through several wild reels pay ×2 per wild). Measured
+ * with the real code (Monte-Carlo, large sample) the free game contributes a
+ * lot even at a low weight, so it is kept deliberately lean: at 45 the overall
+ * long-term RTP (base + free game + gold bonus) stays under 95% and the free
+ * game averages ~50× the total bet per trigger instead of running away. */
+const FREE_WILD_WEIGHT = 45;
 /* Effective wild weight for the current mode: the base slider RTP normally, a
  * fixed lower weight during the expanding-wild free game, and an extra ×4
  * during the signature "wild spins" gold bonus. */
@@ -203,6 +210,7 @@ const state = {
   gambleAmount: 0,        // win currently available to gamble (double-or-nothing)
   gambleNet: 0,           // cumulative gamble result so far (won minus lost)
   gambleHistory: [],      // last 10 drawn cards (kept across sessions + reloads)
+  winHistory: [],         // last 20 base-spin / bonus win amounts (round history)
   rtp: RTP_DEFAULT,       // payout balance in percent (80-120)
   deposited: START_CREDIT,// total credits ever put in (initial + top-ups)
   withdrawn: 0,           // total credits ever taken out (cashed out)
@@ -776,6 +784,8 @@ function recordBaseSpin(staked, win) {
   s.spins += 1;
   s.wagered = round2(s.wagered + staked);
   s.won = round2(s.won + win);
+  pushRoundWin(state.winHistory, win);      // round-history strip (win amount)
+  renderSlotRoundHistory();
   if (win > s.biggest) s.biggest = round2(win);
   if (staked > 0 && win >= staked * 20) state.counters.big += 1;
   addXp(XP_PER_SPIN + (win > 0 ? XP_PER_WIN : 0));
@@ -911,6 +921,7 @@ function restartGame() {
   state.deposits = [{ amount: START_CREDIT }];
   state.gambleNet = 0;
   state.gambleHistory = [];
+  state.winHistory = [];
   state.betIndex = 0;
   state.lastWin = 0;
   state.bonusWin = 0;
@@ -960,6 +971,7 @@ function saveGame() {
       deposited: state.deposited, withdrawn: state.withdrawn,
       deposits: state.deposits.slice(-40), gambleNet: state.gambleNet,
       gambleHistory: state.gambleHistory.slice(0, 10),
+      winHistory: state.winHistory.slice(0, 20),
       stats: state.stats, xp: state.xp, level: state.level,
       counters: state.counters, missionsDone: state.missionsDone,
       jackpot: state.jackpot,
@@ -985,6 +997,9 @@ function loadGame() {
         state.gambleHistory = s.gambleHistory
           .filter((c) => c && typeof c.rank === 'string' && typeof c.s === 'string')
           .slice(0, 10);
+      }
+      if (Array.isArray(s.winHistory)) {
+        state.winHistory = s.winHistory.filter((v) => typeof v === 'number').slice(0, 20);
       }
       // Engagement layer.
       if (s.stats && typeof s.stats === 'object') {
@@ -1481,6 +1496,8 @@ function finishBonus(label) {
     state.lastWin = total;
     state.stats.won = round2(state.stats.won + total);   // bonus wins count in the stats
     if (total > state.stats.biggest) state.stats.biggest = total;
+    pushRoundWin(state.winHistory, total);         // bonus total as its own round-history entry
+    renderSlotRoundHistory();
     checkMissions();
   }
   updateMeters();
@@ -1775,6 +1792,25 @@ function renderGambleHistory() {
     .join('');
 }
 
+/* Shared round-history strip (slot / blackjack / roulette). `list` holds the
+ * most recent rounds first; positive = win (green), negative = loss (red),
+ * zero = no win. Reused by the blackjack + roulette tables via window.HD. */
+function pushRoundWin(list, value, cap = 20) {
+  list.unshift(round2(value));
+  while (list.length > cap) list.pop();
+}
+function renderRoundHistory(elId, list) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!list || !list.length) { el.innerHTML = '<span class="rh-empty">Még nincs kör</span>'; return; }
+  el.innerHTML = list.map((v) => {
+    const cls = v > 0 ? 'win' : (v < 0 ? 'loss' : 'zero');
+    const sign = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return `<span class="rh-chip ${cls}">${sign}${fmt(Math.abs(v))}</span>`;
+  }).join('');
+}
+function renderSlotRoundHistory() { renderRoundHistory('slotRoundHistory', state.winHistory); }
+
 /* Resolve one gamble. `choice` is { mult, test, label }: colour guesses pay ×2
  * (match red/black), exact-suit guesses pay ×4 (match the suit), and exact-rank
  * guesses pay ×13 (match the card rank) — each multiplier is proportional to
@@ -1888,6 +1924,7 @@ function init() {
   buildPaytable();
   updateMeters();
   updateEngagementUI();   // level bar, jackpot, combo meter, missions
+  renderSlotRoundHistory(); // restore the last-20 round strip
   checkMissions();        // in case a save already met some goals
 
   // Load any bitmap art from images/, then re-render so it replaces the SVG.
@@ -2056,4 +2093,6 @@ window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderG
   MISSIONS, applyCombo, expandFreeWilds, recordBaseSpin, maybeHitJackpot, addXp, xpForLevel, checkMissions, bumpCounter, renderMissions, renderStats, openMissions, openStats, updateEngagementUI, updateLevelBar, updateJackpot,
   setControlsEnabled, stopAutoplay, endFreeGame, endGoldGame, maxBet,
   // shared-balance API for the blackjack table (js/blackjack.js)
-  saveGame, round2, fmt };
+  saveGame, round2, fmt,
+  // shared round-history strip (blackjack + roulette reuse these)
+  pushRoundWin, renderRoundHistory };

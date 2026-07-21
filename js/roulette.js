@@ -39,6 +39,7 @@
   let placeOrder = [];      // stack of keys for UNDO
   let lastBets = null;      // for REBET
   let history = [];         // recent winning numbers
+  let winHistory = [];      // last 20 round net results (round-history strip)
   let spinning = false;
   let wheelAngle = 0, ballAngle = 0;   // accumulated rotation of the wheel + ball
   const defByKey = {};      // key -> bet def (all spots)
@@ -249,6 +250,11 @@
     spinning = false;
     setBusy(false);
     renderChips(); renderInfo();
+    // Round-history strip (net result of this spin).
+    if (window.HD && window.HD.pushRoundWin) {
+      window.HD.pushRoundWin(winHistory, net);
+      window.HD.renderRoundHistory('rlRoundHistory', winHistory);
+    }
     // Offer to gamble the round's net profit (shared with the slot/blackjack).
     if (window.HD && window.HD.offerGamble) window.HD.offerGamble(net > 0 ? net : 0);
   }
@@ -309,6 +315,7 @@
     const bv = $('#bjView'); if (bv) bv.classList.add('hidden');
     rv.classList.remove('hidden');
     renderChips(); renderInfo(); renderHistory();
+    if (window.HD && window.HD.renderRoundHistory) window.HD.renderRoundHistory('rlRoundHistory', winHistory);
   }
   function closeTable() {
     const rv = $('#rlView'), cab = $('#slotView');
