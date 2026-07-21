@@ -40,7 +40,50 @@
   let lastBets = null;      // for REBET
   let history = [];         // recent winning numbers
   let spinning = false;
+  let wheelAngle = 0, ballAngle = 0;   // accumulated rotation of the wheel + ball
   const defByKey = {};      // key -> bet def (all spots)
+
+  /* ----------------------- Spinning wheel (SVG) ------------------------ */
+  function buildWheel() {
+    const step = 360 / WHEEL.length;
+    const cx = 100, cy = 100, rOuter = 96, rInner = 60, rText = 79, rBall = 90;
+    const xy = (r, deg) => { const a = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+    let sectors = '';
+    WHEEL.forEach((n, i) => {
+      const a0 = i * step - step / 2, a1 = i * step + step / 2;
+      const [x0, y0] = xy(rOuter, a0), [x1, y1] = xy(rOuter, a1);
+      const [ix1, iy1] = xy(rInner, a1), [ix0, iy0] = xy(rInner, a0);
+      const fill = n === 0 ? '#1a7a3a' : (RED.has(n) ? '#c41818' : '#141414');
+      sectors += `<path d="M${x0.toFixed(2)},${y0.toFixed(2)} A${rOuter},${rOuter} 0 0 1 ${x1.toFixed(2)},${y1.toFixed(2)} L${ix1.toFixed(2)},${iy1.toFixed(2)} A${rInner},${rInner} 0 0 0 ${ix0.toFixed(2)},${iy0.toFixed(2)} Z" fill="${fill}" stroke="#d4af37" stroke-width="0.4"/>`;
+      const [tx, ty] = xy(rText, i * step);
+      sectors += `<text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" fill="#fff" font-size="8" font-weight="800" text-anchor="middle" dominant-baseline="central" transform="rotate(${(i * step).toFixed(2)}, ${tx.toFixed(2)}, ${ty.toFixed(2)})">${n}</text>`;
+    });
+    const [bx, by] = xy(rBall, 0);
+    return `<svg viewBox="0 0 200 200" class="rl-wheel-svg" aria-hidden="true">
+      <circle cx="100" cy="100" r="99" fill="#2a1a0c" stroke="#8a5a2a" stroke-width="2.5"/>
+      <g id="rlWheelRot" class="rl-rot">${sectors}<circle cx="100" cy="100" r="${rInner}" fill="#241608" stroke="#8a5a2a" stroke-width="1.5"/><circle cx="100" cy="100" r="18" fill="#3a2410" stroke="#d4af37" stroke-width="1"/></g>
+      <g id="rlBallRot" class="rl-rot"><circle cx="${bx.toFixed(2)}" cy="${by.toFixed(2)}" r="4.6" fill="#fff" stroke="#999" stroke-width="0.6"/></g>
+    </svg>`;
+  }
+
+  // Rotate the wheel so the winning pocket ends under the top pointer; the ball
+  // counter-rotates and settles at the top. Returns the animation length (ms).
+  function animateWheel(winner) {
+    const step = 360 / WHEEL.length;
+    const idx = WHEEL.indexOf(winner);
+    const turbo = window.HD && window.HD.state && window.HD.state.turbo;
+    const dur = turbo ? 1.4 : 4.4;
+    const wheelEl = $('#rlWheelRot'), ballEl = $('#rlBallRot');
+    // wheel: several forward turns, then bring the winner's pocket to the top (0°)
+    const target = ((-idx * step) % 360 + 360) % 360;
+    const cur = ((wheelAngle % 360) + 360) % 360;
+    wheelAngle += 360 * (turbo ? 4 : 7) + ((target - cur + 360) % 360);
+    // ball: opposite direction, lands back at the top (a whole number of turns)
+    ballAngle -= 360 * (turbo ? 6 : 11);
+    if (wheelEl) { wheelEl.style.transition = `transform ${dur}s cubic-bezier(.16,.62,.2,1)`; wheelEl.style.transform = `rotate(${wheelAngle}deg)`; }
+    if (ballEl) { ballEl.style.transition = `transform ${dur}s cubic-bezier(.1,.5,.2,1)`; ballEl.style.transform = `rotate(${ballAngle}deg)`; }
+    return dur * 1000;
+  }
 
   /* ------------------------- Bet definitions --------------------------- */
   const mkKey = (type, nums) => type + ':' + nums.slice().sort((a, b) => a - b).join('-');
@@ -177,19 +220,13 @@
     const winner = (forced != null) ? forced : Math.floor(Math.random() * 37);
     forced = null;
 
-    // animation: cycle numbers along the wheel order, easing to the winner
-    const idx = WHEEL.indexOf(winner);
-    const spins = 2 * WHEEL.length + idx;      // a couple of full turns
+    // Spin the wheel + ball; the ball settles on the winning pocket at the top.
     const disp = $('#rlBall');
-    const turbo = window.HD && window.HD.state && window.HD.state.turbo;
-    for (let i = 0; i <= spins; i++) {
-      const n = WHEEL[i % WHEEL.length];
-      if (disp) { disp.textContent = n; disp.className = 'rl-ball ' + colorOf(n); }
-      if (window.SFX && i % 2 === 0) SFX.play('reelStop');
-      const t = i / spins;
-      await sleep(turbo ? 6 : (10 + 90 * t * t));   // ease-out
-    }
-    if (disp) { disp.textContent = winner; disp.className = 'rl-ball ' + colorOf(winner); }
+    if (disp) { disp.textContent = '…'; disp.className = 'rl-result spinning'; }
+    const durMs = animateWheel(winner);
+    if (window.SFX) { const t0 = Date.now(); const tick = () => { if (Date.now() - t0 < durMs - 400 && spinning) { SFX.play('reelStop'); setTimeout(tick, 90 + (Date.now() - t0) / durMs * 220); } }; tick(); }
+    await sleep(durMs);
+    if (disp) { disp.textContent = winner; disp.className = 'rl-result ' + colorOf(winner); }
 
     // resolve
     let credited = 0;
@@ -279,6 +316,8 @@
   function wire() {
     const host = $('#rlTable');
     if (host && !host.dataset.built) { host.appendChild(buildTable()); host.dataset.built = '1'; }
+    const wheelHost = $('#rlWheel');
+    if (wheelHost && !wheelHost.dataset.built) { wheelHost.innerHTML = buildWheel(); wheelHost.dataset.built = '1'; }
     renderChipTray();
     const svg = host && host.querySelector('svg');
     if (svg) svg.addEventListener('click', (e) => {

@@ -1306,18 +1306,32 @@ body::after {
 .rl-credit-box { flex: 0 1 auto; min-width: 0; white-space: nowrap; background: #0a0d14; border: 1px solid var(--gold-deep); border-radius: 9px; padding: 8px 10px; font-weight: 800; font-size: 13px; }
 .rl-credit-box b { color: var(--green-led); font-family: "Courier New", monospace; }
 
-.rl-ballrow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.rl-ball {
-  flex: 0 0 auto;
-  width: 54px; height: 54px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 900; font-size: 24px; color: #fff;
-  border: 3px solid #f6c445; box-shadow: 0 0 14px rgba(246,196,69,0.4);
+/* Spinning wheel */
+.rl-wheelwrap { position: relative; width: 210px; max-width: 66vw; aspect-ratio: 1 / 1; margin: 4px auto 10px; }
+.rl-wheel { width: 100%; height: 100%; }
+.rl-wheel-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); }
+.rl-rot { transform-box: fill-box; transform-origin: center; }
+/* pointer at the top */
+.rl-pointer {
+  position: absolute; top: -3px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0; z-index: 3;
+  border-left: 9px solid transparent; border-right: 9px solid transparent;
+  border-top: 15px solid var(--gold);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
 }
-.rl-ball.green { background: #1a7a3a; }
-.rl-ball.red { background: #c41818; }
-.rl-ball.black { background: #17130d; }
-.rl-history { flex: 1 1 auto; display: flex; gap: 4px; overflow-x: auto; }
+/* result badge in the hub */
+.rl-result {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 40px; height: 40px; border-radius: 50%; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 17px; color: #fff;
+  border: 2px solid #d4af37; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+.rl-result.green { background: #1a7a3a; }
+.rl-result.red { background: #c41818; }
+.rl-result.black { background: #17130d; }
+.rl-result.spinning { background: #241608; color: #d4af37; font-size: 20px; }
+.rl-history { display: flex; gap: 4px; overflow-x: auto; justify-content: center; margin-bottom: 8px; }
 .rl-hist { flex: 0 0 auto; min-width: 26px; text-align: center; padding: 3px 4px; border-radius: 6px; font-weight: 800; font-size: 12px; color: #fff; }
 .rl-hist.green { background: #1a7a3a; }
 .rl-hist.red { background: #c41818; }

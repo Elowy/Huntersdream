@@ -174,7 +174,13 @@
 
   /* --------------------------- Deal ------------------------------------ */
   function deal() {
-    if (bj.phase === 'done') resetTable();
+    if (bj.phase === 'done') {
+      // "ÚJ LEOSZTÁS": start a fresh round with the SAME bets as the last one
+      // (resetTable clears them, so restore from lastBets afterwards).
+      const prev = bj.lastBets;
+      resetTable();
+      if (prev) bj.bets = { main: prev.main, pp: prev.pp, t3: prev.t3, ll: prev.ll };
+    }
     if (bj.phase !== 'bet') return;
     if (bj.bets.main < MIN_BET) { flash('Adj meg egy fő tétet (TÉT).'); return; }
     const stake = totalStaked();
