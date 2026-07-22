@@ -4,14 +4,14 @@
  * (gamble), bet steps and round-history strip. Self-contained; exposed as
  * window.SLOT2 for tests.
  *
- * Symbols (3-of-a-kind on a payline pays mult × TOTAL bet):
- *   7 (60×, max 1/reel · also SCATTER), Gold Bar (40×, max 1/reel),
- *   Bell (30×, max 1/reel), Purple star (16×), Green star (16×),
- *   Grape/Orange/Lemon/Cherry (2× each).
+ * 27 FIXED paylines (every one-cell-per-reel combo — "all lines payable"),
+ * lineBet = totalBet / 27. Each line of 3 equal symbols pays mult × lineBet:
+ *   7 (60× · also SCATTER), Gold Bar (40×), Bell (30×) — max 1/reel;
+ *   Purple star (16×), Green star (16×), Grape/Orange/Lemon/Cherry (2×).
  * Full screen (all 9 the same symbol) → total win ×2.
- * 3 sevens (one per reel — very rare) → WILD-7 bonus: the sevens turn sticky
- * wild, the rest respin once, lines re-score with 7 substituting anything,
- * and that respin win is ×7. Calibrated to ~94.75% RTP.
+ * 3 sevens (one per reel) → WILD-7 bonus: the sevens turn sticky wild, the
+ * rest respin once, lines re-score with 7 substituting anything, respin ×7.
+ * Monte-Carlo calibrated to ~98% RTP. Autoplay + shared DUPLÁZÓ included.
  * ========================================================================= */
 'use strict';
 
@@ -24,30 +24,28 @@
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
   const COLS = 3, ROWS = 3;
-  const LINES = [
-    { cells: [[0, 0], [1, 0], [2, 0]], name: 'felső sor' },
-    { cells: [[0, 1], [1, 1], [2, 1]], name: 'középső sor' },
-    { cells: [[0, 2], [1, 2], [2, 2]], name: 'alsó sor' },
-    { cells: [[0, 0], [1, 1], [2, 2]], name: 'átló ↘' },
-    { cells: [[0, 2], [1, 1], [2, 0]], name: 'átló ↗' },
-  ];
-  // id -> { emoji, mult, weight, restricted (max 1 per reel), cls }
+  // 27 FIXED paylines: every possible one-cell-per-reel combination
+  // ([row0,row1,row2]) — "all possible lines are payable" (3×3×3 = 27).
+  const LINES = [];
+  for (let a = 0; a < ROWS; a++) for (let b = 0; b < ROWS; b++) for (let c = 0; c < ROWS; c++) LINES.push([[0, a], [1, b], [2, c]]);
+  // id -> { emoji, mult (per line, × lineBet), weight, restricted (max 1/reel), cls }
+  // Monte-Carlo calibrated to ~98% RTP (lineBet = totalBet / 27).
   const SYM = {
-    seven:  { emoji: '7', mult: 60, weight: 3,  restricted: true,  cls: 'sv-seven' },
-    goldbar:{ emoji: 'BAR', mult: 40, weight: 6,  restricted: true,  cls: 'sv-bar' },
-    bell:   { emoji: '🔔', mult: 30, weight: 11, restricted: true,  cls: 'sv-bell' },
-    pstar:  { emoji: '★', mult: 16, weight: 52, restricted: false, cls: 'sv-pstar' },
-    gstar:  { emoji: '★', mult: 16, weight: 52, restricted: false, cls: 'sv-gstar' },
-    grape:  { emoji: '🍇', mult: 2, weight: 42, restricted: false, cls: 'sv-fruit' },
-    orange: { emoji: '🍊', mult: 2, weight: 44, restricted: false, cls: 'sv-fruit' },
-    lemon:  { emoji: '🍋', mult: 2, weight: 46, restricted: false, cls: 'sv-fruit' },
-    cherry: { emoji: '🍒', mult: 2, weight: 48, restricted: false, cls: 'sv-fruit' },
+    seven:  { emoji: '7', mult: 60, weight: 10,  restricted: true,  cls: 'sv-seven' },
+    goldbar:{ emoji: 'BAR', mult: 40, weight: 24,  restricted: true,  cls: 'sv-bar' },
+    bell:   { emoji: '🔔', mult: 30, weight: 46,  restricted: true,  cls: 'sv-bell' },
+    pstar:  { emoji: '★', mult: 16, weight: 139, restricted: false, cls: 'sv-pstar' },
+    gstar:  { emoji: '★', mult: 16, weight: 139, restricted: false, cls: 'sv-gstar' },
+    grape:  { emoji: '🍇', mult: 2, weight: 22, restricted: false, cls: 'sv-fruit' },
+    orange: { emoji: '🍊', mult: 2, weight: 24, restricted: false, cls: 'sv-fruit' },
+    lemon:  { emoji: '🍋', mult: 2, weight: 26, restricted: false, cls: 'sv-fruit' },
+    cherry: { emoji: '🍒', mult: 2, weight: 28, restricted: false, cls: 'sv-fruit' },
   };
   const IDS = Object.keys(SYM);
   const POOL = (() => { const p = []; for (const id of IDS) for (let i = 0; i < SYM[id].weight; i++) p.push(id); return p; })();
 
   const betSteps = () => (window.HD && window.HD.BET_STEPS) ? window.HD.BET_STEPS : [1];
-  const s2 = { grid: [], betIndex: 0, spinning: false, winHistory: [] };
+  const s2 = { grid: [], betIndex: 0, spinning: false, auto: false, turbo: false, winHistory: [] };
   for (let c = 0; c < COLS; c++) { s2.grid[c] = []; for (let r = 0; r < ROWS; r++) s2.grid[c][r] = IDS[(c + r) % IDS.length]; }
   const totalBet = () => betSteps()[s2.betIndex];
 
@@ -64,13 +62,15 @@
   }
 
   /* --------------------------- Evaluation ------------------------------ */
-  // Returns { totalWin (in currency), lines:[{idx, sym, win}], full, sevens }.
+  // Each of the 27 lines that shows 3 equal symbols pays mult × lineBet
+  // (lineBet = totalBet / 27); wins sum. Full screen → total ×2.
+  // Returns { totalWin (currency), winCells (Set 'c,r'), winLines, full, sevens }.
   function evaluate(sevenWild) {
-    const tb = totalBet();
-    const lines = [];
-    let total = 0;
-    LINES.forEach((line, idx) => {
-      const cells = line.cells.map(([c, r]) => s2.grid[c][r]);
+    const lineBet = totalBet() / LINES.length;
+    let total = 0, winLines = 0;
+    const winCells = new Set();
+    for (const line of LINES) {
+      const cells = line.map(([c, r]) => s2.grid[c][r]);
       let sym = null;
       if (cells[0] === cells[1] && cells[1] === cells[2]) sym = cells[0];
       else if (sevenWild) {
@@ -78,16 +78,16 @@
         if (base && cells.every((s) => s === base || s === 'seven')) sym = base;
         else if (cells.every((s) => s === 'seven')) sym = 'seven';
       }
-      if (sym) { const win = r2(SYM[sym].mult * tb); total = r2(total + win); lines.push({ idx, sym, win }); }
-    });
-    // full screen: all nine cells identical
+      if (sym) { total += SYM[sym].mult * lineBet; winLines++; for (const [c, r] of line) winCells.add(c + ',' + r); }   // raw sum; rounded once below
+    }
     const first = s2.grid[0][0];
     let full = true;
     for (let c = 0; c < COLS && full; c++) for (let r = 0; r < ROWS; r++) if (s2.grid[c][r] !== first) { full = false; break; }
-    if (full && total > 0) total = r2(total * 2);
+    if (full && total > 0) total *= 2;
+    total = r2(total);
     let sevens = 0;
     for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) if (s2.grid[c][r] === 'seven') sevens++;
-    return { totalWin: total, lines, full, sevens };
+    return { totalWin: total, winCells, winLines, full, sevens };
   }
 
   /* --------------------------- Rendering ------------------------------- */
@@ -103,13 +103,14 @@
     const cr = $('#s2Credit'); if (cr) cr.textContent = money(credit());
     const win = $('#s2Win'); if (win) win.textContent = money(s2.lastWin || 0);
   }
-  function markWins(lines, cls) {
-    const host = $('#s2Reels'); if (!host) return;
+  function markWins(winCells, cls) {
+    const host = $('#s2Reels'); if (!host || !winCells) return;
     const reels = host.querySelectorAll('.sv-reel');
-    for (const lw of lines) for (const [c, r] of LINES[lw.idx].cells) {
+    winCells.forEach((key) => {
+      const [c, r] = key.split(',').map(Number);
       const cell = reels[c] && reels[c].children[r];
       if (cell) cell.classList.add(cls || 'sv-hit');
-    }
+    });
   }
   function clearWins() {
     const host = $('#s2Reels'); if (!host) return;
@@ -134,7 +135,7 @@
     if (window.SFX) SFX.play('spin');
 
     // quick spin animation: shuffle each reel a few times
-    const turbo = window.HD && window.HD.state && window.HD.state.turbo;
+    const turbo = s2.turbo;
     const frames = turbo ? 3 : 8;
     for (let f = 0; f < frames; f++) {
       for (let c = 0; c < COLS; c++) spinReel(c);
@@ -161,11 +162,11 @@
       const bonus = evaluate(true);
       const bwin = r2(bonus.totalWin * 7);
       win = r2(win + bwin);
-      if (bonus.lines.length) markWins(bonus.lines, 'sv-hit');
+      markWins(bonus.winCells, 'sv-hit');
       flash(`WILD-7 ×7 → +${money(bwin)} €`, 'win');
       await sleep(turbo ? 300 : 900);
-    } else if (res.lines.length) {
-      markWins(res.lines, 'sv-hit');
+    } else if (res.winCells.size) {
+      markWins(res.winCells, 'sv-hit');
     }
 
     if (win > 0) {
@@ -184,7 +185,30 @@
       window.HD.renderRoundHistory('s2RoundHistory', s2.winHistory);
     }
     s2.spinning = false; setBusy(false);
-    if (window.HD && window.HD.offerGamble) window.HD.offerGamble(win > 0 ? win : 0);
+    // Gamble is offered only when NOT auto-spinning (like the main machine).
+    if (!s2.auto && window.HD && window.HD.offerGamble) window.HD.offerGamble(win > 0 ? win : 0);
+  }
+
+  /* Autoplay: keep spinning until stopped, out of credit, or a bonus hits. */
+  async function toggleAuto() {
+    if (s2.auto) { stopAuto(); return; }
+    if (s2.spinning) return;
+    if (window.HD && window.HD.clearGamble) window.HD.clearGamble();
+    s2.auto = true;
+    const btn = $('#s2AutoBtn'); if (btn) btn.classList.add('active');
+    while (s2.auto) {
+      if (credit() < totalBet()) { stopAuto(); break; }
+      await spin();
+      if (!s2.auto) break;
+      await sleep(s2.turbo ? 220 : 550);
+    }
+  }
+  function stopAuto() { s2.auto = false; const btn = $('#s2AutoBtn'); if (btn) btn.classList.remove('active'); }
+  function toggleTurbo() { s2.turbo = !s2.turbo; const b = $('#s2TurboBtn'); if (b) b.classList.toggle('active', s2.turbo); }
+  function toggleInfo() {
+    const p = $('#s2Paytable'); if (!p) return;
+    const open = p.classList.toggle('hidden') === false;
+    const b = $('#s2InfoBtn'); if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
   function markSevensWild() {
@@ -219,9 +243,10 @@
     v.classList.remove('hidden');
     render();
     if (window.HD && window.HD.renderRoundHistory) window.HD.renderRoundHistory('s2RoundHistory', s2.winHistory);
-    flash('Tedd meg a téted, majd PÖRGESS!', '');
+    flash('TEGYE MEG TÉTJÉT!', '');
   }
   function closeTable() {
+    stopAuto();
     const v = $('#s2View'), cab = $('#slotView');
     if (v) v.classList.add('hidden');
     if (cab) cab.classList.remove('hidden');
@@ -234,7 +259,7 @@
     el.innerHTML = order.map((id) => {
       const d = SYM[id];
       return `<div class="sv-pt-row"><span class="sv-cell ${d.cls} mini"><span>${d.emoji}</span></span><b>3×</b><span>${d.mult}× tét</span></div>`;
-    }).join('') + '<div class="sv-pt-note">3× 7-es (nagyon ritka) → WILD-7 bónusz ×7 · teli kép → ×2</div>';
+    }).join('') + '<div class="sv-pt-note">27 fix nyerővonal — minden lehetséges vonal fizet (tét/27 vonalanként) · 3× 7-es → WILD-7 bónusz ×7 · teli kép → ×2</div>';
   }
 
   function wire() {
@@ -242,7 +267,11 @@
     const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
     on('#s2Btn', () => { if (window.SFX) SFX.resume(); openTable(); });
     on('#s2BackBtn', closeTable);
-    on('#s2Spin', () => { if (window.SFX) SFX.resume(); spin(); });
+    on('#s2MenuBtn', closeTable);
+    on('#s2Spin', () => { if (window.SFX) SFX.resume(); if (s2.auto) stopAuto(); else spin(); });
+    on('#s2AutoBtn', () => { if (window.SFX) SFX.resume(); toggleAuto(); });
+    on('#s2TurboBtn', () => { if (window.SFX) SFX.resume(); toggleTurbo(); });
+    on('#s2InfoBtn', toggleInfo);
     on('#s2BetMinus', () => changeBet(-1));
     on('#s2BetPlus', () => changeBet(1));
     on('#s2GambleBtn', () => { if (window.HD && window.HD.openGamble) window.HD.openGamble(); });

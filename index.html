@@ -288,35 +288,43 @@
 
   <!-- ===================== LUCKY SEVENS (3x3 slot, shared balance) ====== -->
   <div class="sv-view hidden" id="s2View">
-    <header class="sv-topbar">
-      <button id="s2BackBtn" class="sv-back" type="button">🎰 Vissza a géphez</button>
-      <h2 class="sv-title">🎰 LUCKY SEVENS</h2>
-      <div class="sv-credit-box">KREDIT <b id="s2Credit">0.00</b> €</div>
+    <header class="sv-head">
+      <button id="s2BackBtn" class="sv-icon-btn" type="button" title="Vissza a géphez">🎰</button>
+      <h2 class="sv-logo">LUCKY <span>7</span></h2>
+      <div class="sv-win-chip"><span id="s2Win">0.00</span> €</div>
     </header>
 
-    <div class="sv-machine">
-      <div class="sv-reels" id="s2Reels"></div>
-      <div class="sv-msg" id="s2Msg">Tedd meg a téted, majd PÖRGESS!</div>
+    <div class="sv-reels" id="s2Reels"></div>
+    <div class="sv-msg" id="s2Msg">TEGYE MEG TÉTJÉT!</div>
+
+    <div class="sv-controls-main">
+      <button id="s2AutoBtn" class="sv-round-btn auto" type="button" title="Automata pörgetés">▶</button>
+      <button id="s2Spin" class="sv-round-btn spin" type="button" title="Pörgetés">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
+      </button>
+      <button id="s2TurboBtn" class="sv-round-btn turbo" type="button" title="Villám mód">⚡</button>
     </div>
 
-    <div class="sv-meters">
-      <div class="sv-meter"><span>TÉT</span><b id="s2Bet">1.00</b></div>
-      <div class="sv-meter win"><span>NYEREMÉNY</span><b id="s2Win">0.00</b></div>
+    <div class="sv-bet-row">
+      <button id="s2BetMinus" class="sv-round-sm" type="button">−</button>
+      <div class="sv-bet-disp"><span>TÉT</span><b id="s2Bet">1.00</b></div>
+      <button id="s2BetPlus" class="sv-round-sm" type="button">+</button>
     </div>
 
-    <div class="sv-controls">
-      <button id="s2BetMinus" class="sv-btn" type="button">TÉT −</button>
-      <button id="s2BetPlus" class="sv-btn" type="button">TÉT +</button>
-      <button id="s2Spin" class="sv-btn primary" type="button">PÖRGESS</button>
-    </div>
     <button id="s2GambleBtn" class="sv-gamble-btn" type="button" disabled>🃏 DUPLÁZÁS<span id="s2GambleAmt"></span></button>
 
-    <div class="round-history">
+    <div class="sv-bottom">
+      <button id="s2MenuBtn" class="sv-icon-btn" type="button" title="Vissza a géphez">☰</button>
+      <div class="sv-balance"><span>KREDIT</span> <b id="s2Credit">0.00</b> €</div>
+      <button id="s2InfoBtn" class="sv-icon-btn" type="button" title="Nyerőtábla" aria-expanded="false">ℹ️</button>
+    </div>
+
+    <div class="round-history sv-hist">
       <span class="rh-label">Utolsó 20 kör</span>
       <div class="rh-strip" id="s2RoundHistory"></div>
     </div>
 
-    <div class="sv-paytable" id="s2Paytable"></div>
+    <div class="sv-paytable hidden" id="s2Paytable"></div>
   </div>
 
   <!-- Rules modal -->
