@@ -68,7 +68,6 @@
     gambleLose() { tone(300, ctx.currentTime, 0.45, 'sawtooth', 0.18, 110); },
     freespins() { arp([523, 659, 784, 1046, 1318], 0.12, 0.35, 'sine', 0.22); },
     anticipation() { tone(300, ctx.currentTime, 0.7, 'sawtooth', 0.12, 950); },
-    levelup() { arp([659, 784, 988, 1318, 1568], 0.08, 0.26, 'triangle', 0.20); },
     mission() { arp([784, 1046, 1318], 0.07, 0.20, 'square', 0.14); },
     jackpot() { arp([523, 659, 784, 1046, 1318, 1568, 2093, 2637], 0.08, 0.40, 'triangle', 0.24); },
   };

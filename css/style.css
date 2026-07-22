@@ -1240,34 +1240,6 @@ body::after {
   body:not(.ls-off) .panel .footer { margin-top: auto; }
 }
 
-/* ---------------- Engagement: infobar (level / XP) --------------------- */
-/* Single-line info strip: never wraps, so nothing below ever shifts. */
-.infobar {
-  display: flex;
-  gap: 6px;
-  align-items: stretch;
-  margin: 4px 0 8px;
-  flex-wrap: nowrap;
-}
-.ib-level {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 9px;
-  background: #0a0d14;
-  border: 1px solid #2a2f3a;
-  font-weight: 800;
-  font-size: 12px;
-  cursor: pointer;
-  color: #e7d3a0;
-  flex: 0 0 auto;
-}
-.ib-level:hover { border-color: var(--gold-deep); }
-.ib-lvl { color: var(--gold); white-space: nowrap; }
-.ib-xp { position: relative; width: 44px; height: 7px; border-radius: 5px; background: #05070c; overflow: hidden; box-shadow: inset 0 0 0 1px #2a2f3a; }
-.ib-xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width .4s ease; }
-
 /* ---------------- Statistics modal ------------------------------------- */
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
 .stat-cell {
@@ -1277,28 +1249,6 @@ body::after {
 }
 .sc-label { font-size: 11px; color: #9aa3b2; text-transform: uppercase; letter-spacing: .03em; }
 .sc-value { font-size: 18px; font-weight: 900; color: var(--gold); font-family: "Courier New", monospace; }
-
-/* ---------------- Toast (level up / mission) --------------------------- */
-.toast {
-  position: fixed;
-  left: 50%; bottom: 24px;
-  transform: translate(-50%, 20px);
-  max-width: 90vw;
-  padding: 12px 20px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #2a1e06, #191203);
-  border: 2px solid var(--gold);
-  color: #fff3cf;
-  font-weight: 800;
-  font-size: 15px;
-  text-align: center;
-  box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 18px rgba(246,196,69,.35);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 60;
-  transition: opacity .25s ease, transform .25s ease;
-}
-.toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ============================ BLACKJACK TABLE ========================== */
 .bj-view {

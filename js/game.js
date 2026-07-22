@@ -164,11 +164,6 @@ function effectiveWildWeight() {
 }
 function wildWeight() { return activeWild != null ? activeWild : effectiveWildWeight(); }
 
-/* XP/level progression is layered on top of the base game. */
-const XP_PER_SPIN = 1;            // XP earned per base spin
-const XP_PER_WIN = 2;             // extra XP on a winning base spin
-const xpForLevel = (l) => 40 + (l - 1) * 25;   // XP needed to advance FROM level l
-
 /* ------------------------------- State ---------------------------------- */
 
 const state = {
@@ -199,7 +194,6 @@ const state = {
   // --- engagement features ---
   combo: 0,               // current base-game win streak (drives the combo counter)
   stats: { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 },
-  xp: 0, level: 1,        // XP / level progression
 };
 
 const TOPUP_AMOUNT = 50;       // credit added by the top-up button
@@ -781,7 +775,7 @@ function expandFreeWilds() {
   }
 }
 
-/* Record a settled base spin: stats and XP. */
+/* Record a settled base spin: stats and round history. */
 function recordBaseSpin(staked, win) {
   const s = state.stats;
   s.spins += 1;
@@ -790,37 +784,6 @@ function recordBaseSpin(staked, win) {
   pushRoundWin(state.winHistory, win);      // round-history strip (win amount)
   renderSlotRoundHistory();
   if (win > s.biggest) s.biggest = round2(win);
-  addXp(XP_PER_SPIN + (win > 0 ? XP_PER_WIN : 0));
-}
-
-function addXp(n) {
-  state.xp += n;
-  while (state.xp >= xpForLevel(state.level)) {
-    state.xp -= xpForLevel(state.level);
-    state.level += 1;
-    const reward = state.level * 10;
-    state.credit = round2(state.credit + reward);
-    SFX.play('levelup');
-    flashToast(`⭐ SZINT ${state.level}! +${fmt(reward)} €`);
-  }
-  updateLevelBar();
-}
-
-function updateLevelBar() {
-  const n = $('#lvlNum'); if (n) n.textContent = state.level;
-  const fill = $('#xpFill');
-  if (fill) fill.style.width = Math.min(100, Math.round(state.xp / xpForLevel(state.level) * 100)) + '%';
-}
-
-
-/* A brief, non-blocking toast (its own element, never fights the win popup). */
-let toastTimer = null;
-function flashToast(text) {
-  const el = $('#toast'); if (!el) return;
-  el.textContent = text;
-  el.classList.add('show');
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2100);
 }
 
 function renderStats() {
@@ -833,13 +796,12 @@ function renderStats() {
   set('#stBiggest', fmt(s.biggest) + ' €');
   set('#stStreak', s.bestStreak);
   set('#stRtp', s.spins ? rtp.toFixed(1) + '%' : '—');
-  set('#stLevel', state.level);
 }
 
 function openStats() { renderStats(); $('#statsModal').classList.remove('hidden'); }
 
 function updateEngagementUI() {
-  updateLevelBar(); updateComboUI();
+  updateComboUI();
 }
 
 /* ------------------------------- Restart -------------------------------- */
@@ -861,10 +823,9 @@ function restartGame() {
   // Reset the engagement layer too (keeps the leaderboard, resets the rest).
   state.combo = 0;
   state.stats = { spins: 0, wagered: 0, won: 0, biggest: 0, bestStreak: 0 };
-  state.xp = 0; state.level = 1;
   saveGame();
   updateMeters();
-  updateLevelBar(); updateComboUI();
+  updateComboUI();
   SFX.play('click');
   showWinPopup('ÚJRAINDÍTVA');
   setTimeout(hideWinPopup, 1200);
@@ -902,7 +863,7 @@ function saveGame() {
       deposits: state.deposits.slice(-40), gambleNet: state.gambleNet,
       gambleHistory: state.gambleHistory.slice(0, 10),
       winHistory: state.winHistory.slice(0, 20),
-      stats: state.stats, xp: state.xp, level: state.level,
+      stats: state.stats,
     }));
   } catch (e) { /* ignore */ }
 }
@@ -939,8 +900,6 @@ function loadGame() {
         };
         void d;
       }
-      if (Number.isFinite(s.xp) && s.xp >= 0) state.xp = s.xp;
-      if (Number.isInteger(s.level) && s.level >= 1) state.level = s.level;
     }
   } catch (e) { /* ignore */ }
 }
@@ -1961,10 +1920,6 @@ function init() {
     try { localStorage.setItem('hd_turbo', state.turbo ? '1' : '0'); } catch (e) { /* ignore */ }
   });
 
-  // The level chip opens the statistics panel.
-  const levelChip = $('#levelChip');
-  if (levelChip) levelChip.addEventListener('click', () => { SFX.resume(); openStats(); });
-
   // Statistics (statisztika) modal.
   const statsBtn = $('#statsBtn');
   if (statsBtn) statsBtn.addEventListener('click', () => { SFX.resume(); openStats(); });
@@ -2046,7 +2001,7 @@ document.addEventListener('DOMContentLoaded', init);
  * and drive the game state. Harmless in normal play. */
 window.HD = { state, SYMBOLS, PAYLINES, evaluateGrid, lineBet, totalBet, renderGrid, showWinLines, presentWins, spinReelSymbols, offerGamble, openGamble, gambleGuess, gambleCollect, setRtp, wildWeight, wildWeightFor, effectiveWildWeight, reelSymbols, finishBonus, updateHistoryPanel, updateMeters, revealGoldMultipliers, settleResult, clearGamble, topUp, withdraw, currentNet, openBoard, submitScore, renderBoard, restartGame, renderGambleOdds, applyLayout, loadLayout, getBoard: () => leaderboard,
   // engagement features
-  applyCombo, expandFreeWilds, recordBaseSpin, addXp, xpForLevel, renderStats, openStats, updateEngagementUI, updateLevelBar, updateComboUI,
+  applyCombo, expandFreeWilds, recordBaseSpin, renderStats, openStats, updateEngagementUI, updateComboUI,
   setControlsEnabled, stopAutoplay, endFreeGame, endGoldGame, maxBet,
   // shared-balance API for the blackjack table (js/blackjack.js)
   saveGame, round2, fmt,
