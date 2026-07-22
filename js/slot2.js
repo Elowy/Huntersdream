@@ -4,15 +4,13 @@
  * (gamble), bet steps and round-history strip. Self-contained; exposed as
  * window.SLOT2 for tests.
  *
- * 27 lines = every one-cell-per-reel combo, so a symbol pays as soon as it
- * shows up on ALL THREE reels ("all possible lines payable"). Each such symbol
- * pays mult × TOTAL bet (so 3 gold bars = 40× tét); wins sum:
+ * Full reels (no blanks). 5 paylines (3 rows + 2 diagonals): 3 of a kind
+ * ALIGNED on a line pays mult × TOTAL bet (so 3 gold bars on a line = 40× tét);
+ * line wins sum:
  *   7 (60× · also SCATTER), Gold Bar (40×), Bell (30×) — max 1/reel;
  *   Purple star (16×), Green star (16×), Grape/Orange/Lemon/Cherry (2×).
- * A BLANK strip position never pays and dilutes the reels so the big
- * multipliers can stand at ~98% RTP. Full screen (all 9 same) → total ×2.
- * 3 sevens (one per reel) → the sevens turn wild and the whole spin win ×7.
- * Monte-Carlo calibrated to ~98% RTP. Autoplay + shared DUPLÁZÓ included.
+ * Full screen (all 9 same) → total ×2. 3 sevens anywhere → whole spin win ×7.
+ * Monte-Carlo calibrated to ~97-98% RTP. Autoplay + shared DUPLÁZÓ included.
  * ========================================================================= */
 'use strict';
 
@@ -25,28 +23,30 @@
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
   const COLS = 3, ROWS = 3;
-  // 27 FIXED paylines: every possible one-cell-per-reel combination
-  // ([row0,row1,row2]) — "all possible lines are payable" (3×3×3 = 27).
-  const LINES = [];
-  for (let a = 0; a < ROWS; a++) for (let b = 0; b < ROWS; b++) for (let c = 0; c < ROWS; c++) LINES.push([[0, a], [1, b], [2, c]]);
+  // Paylines: the 3 rows + 2 diagonals. A win needs 3 of a kind ALIGNED on a
+  // line (full reels, no blanks) — that keeps the big multipliers at ~98% RTP.
+  const LINES = [
+    [[0, 0], [1, 0], [2, 0]],   // top row
+    [[0, 1], [1, 1], [2, 1]],   // middle row
+    [[0, 2], [1, 2], [2, 2]],   // bottom row
+    [[0, 0], [1, 1], [2, 2]],   // ↘ diagonal
+    [[0, 2], [1, 1], [2, 0]],   // ↗ diagonal
+  ];
   // id -> { emoji, mult (per line, × lineBet), weight, restricted (max 1/reel), cls }
-  // Monte-Carlo calibrated to ~98% RTP (lineBet = totalBet / 27).
+  // Full reels (no blanks). Monte-Carlo calibrated to ~97-98% RTP with the
+  // aligned 5-payline model below.
   const SYM = {
     seven:  { emoji: '7', mult: 60, weight: 3,  restricted: true,  cls: 'sv-seven' },
     goldbar:{ emoji: 'BAR', mult: 40, weight: 6,  restricted: true,  cls: 'sv-bar' },
     bell:   { emoji: '🔔', mult: 30, weight: 11, restricted: true,  cls: 'sv-bell' },
-    pstar:  { emoji: '★', mult: 16, weight: 20, restricted: false, cls: 'sv-pstar' },
-    gstar:  { emoji: '★', mult: 16, weight: 20, restricted: false, cls: 'sv-gstar' },
-    grape:  { emoji: '🍇', mult: 2, weight: 30, restricted: false, cls: 'sv-fruit' },
-    orange: { emoji: '🍊', mult: 2, weight: 32, restricted: false, cls: 'sv-fruit' },
-    lemon:  { emoji: '🍋', mult: 2, weight: 34, restricted: false, cls: 'sv-fruit' },
-    cherry: { emoji: '🍒', mult: 2, weight: 36, restricted: false, cls: 'sv-fruit' },
-    // Blank strip position (never pays) — dilutes the reels so the big
-    // multipliers can stand at ~98% RTP. Renders as a dim empty cell.
-    blank:  { emoji: '', mult: 0, weight: 38, restricted: false, cls: 'sv-blank' },
+    pstar:  { emoji: '★', mult: 16, weight: 53, restricted: false, cls: 'sv-pstar' },
+    gstar:  { emoji: '★', mult: 16, weight: 53, restricted: false, cls: 'sv-gstar' },
+    grape:  { emoji: '🍇', mult: 2, weight: 42, restricted: false, cls: 'sv-fruit' },
+    orange: { emoji: '🍊', mult: 2, weight: 44, restricted: false, cls: 'sv-fruit' },
+    lemon:  { emoji: '🍋', mult: 2, weight: 46, restricted: false, cls: 'sv-fruit' },
+    cherry: { emoji: '🍒', mult: 2, weight: 48, restricted: false, cls: 'sv-fruit' },
   };
   const IDS = Object.keys(SYM);
-  const PAYIDS = IDS.filter((id) => SYM[id].mult > 0);
   const POOL = (() => { const p = []; for (const id of IDS) for (let i = 0; i < SYM[id].weight; i++) p.push(id); return p; })();
 
   const betSteps = () => (window.HD && window.HD.BET_STEPS) ? window.HD.BET_STEPS : [1];
@@ -67,30 +67,29 @@
   }
 
   /* --------------------------- Evaluation ------------------------------ */
-  // 27 lines = every one-cell-per-reel combo, so a symbol wins as soon as it
-  // shows up on ALL THREE reels ("all possible lines are payable"). Each such
-  // symbol pays mult × TOTAL bet (not per line), so 3 gold bars = 40× tét.
-  // Wins sum; full screen (all 9 same symbol) → total ×2. The x7 wild-7 bonus
-  // (3 sevens) is applied by the caller. Returns
-  // { totalWin, winCells (Set 'c,r'), winSyms, full, sevens }.
+  // A payline of 3 equal symbols pays mult × TOTAL bet (3 gold bars aligned =
+  // 40× tét); wins on the 5 lines sum. Full screen (all 9 same) → total ×2.
+  // The ×7 wild-7 bonus (3 sevens anywhere) is applied by the caller. Returns
+  // { totalWin, winCells (Set 'c,r'), winSyms, winLines, full, sevens }.
   function evaluate() {
     const tb = totalBet();
-    const present = (id) => s2.grid[0].includes(id) && s2.grid[1].includes(id) && s2.grid[2].includes(id);
-    let total = 0; const winSyms = []; const winCells = new Set();
-    for (const id of PAYIDS) {
-      if (!present(id)) continue;
-      total += SYM[id].mult * tb;
-      winSyms.push(id);
-      for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) if (s2.grid[c][r] === id) winCells.add(c + ',' + r);
+    let total = 0, winLines = 0; const winSyms = []; const winCells = new Set();
+    for (const line of LINES) {
+      const cells = line.map(([c, r]) => s2.grid[c][r]);
+      if (cells[0] === cells[1] && cells[1] === cells[2]) {
+        total += SYM[cells[0]].mult * tb;
+        winLines++; winSyms.push(cells[0]);
+        for (const [c, r] of line) winCells.add(c + ',' + r);
+      }
     }
     const first = s2.grid[0][0];
-    let full = first !== 'blank';
+    let full = true;
     for (let c = 0; c < COLS && full; c++) for (let r = 0; r < ROWS; r++) if (s2.grid[c][r] !== first) { full = false; break; }
     if (full && total > 0) total *= 2;
     total = r2(total);
     let sevens = 0;
     for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) if (s2.grid[c][r] === 'seven') sevens++;
-    return { totalWin: total, winCells, winSyms, full, sevens };
+    return { totalWin: total, winCells, winSyms, winLines, full, sevens };
   }
 
   /* --------------------------- Rendering ------------------------------- */
@@ -254,7 +253,7 @@
     el.innerHTML = order.map((id) => {
       const d = SYM[id];
       return `<div class="sv-pt-row"><span class="sv-cell ${d.cls} mini"><span>${d.emoji}</span></span><b>3×</b><span>${d.mult}× tét</span></div>`;
-    }).join('') + '<div class="sv-pt-note">27 nyerővonal — bárhol 3 egyforma a tárcsákon fizet (szorzó × tét) · teli kép → ×2 · 3× 7-es → WILD-7 ×7</div>';
+    }).join('') + '<div class="sv-pt-note">5 nyerővonal (3 sor + 2 átló) — 3 egyforma egy vonalon fizet (szorzó × tét) · teli kép → ×2 · 3× 7-es → WILD-7 ×7</div>';
   }
 
   function wire() {

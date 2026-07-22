@@ -1630,8 +1630,6 @@ body::after {
 .sv-pstar > span { color: #c85cff; text-shadow: 0 0 10px rgba(200,92,255,0.8), 0 2px 2px rgba(0,0,0,0.6); }
 .sv-gstar > span { color: #46e05a; text-shadow: 0 0 10px rgba(70,224,90,0.8), 0 2px 2px rgba(0,0,0,0.6); }
 .sv-fruit > span { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55)); }
-/* blank strip position — a dim empty cell (like a real reel strip gap) */
-.sv-cell.sv-blank { background: radial-gradient(circle at 50% 32%, rgba(30,10,10,0.5), rgba(8,2,2,0.9)); box-shadow: inset 0 0 18px rgba(0,0,0,0.7); }
 .sv-cell.sv-hit { animation: svHit 0.5s ease infinite alternate; box-shadow: 0 0 16px rgba(255,220,90,0.9), inset 0 0 0 2px var(--gold); border-radius: 9px; }
 .sv-cell.sv-wild { box-shadow: 0 0 18px rgba(255,40,30,0.95), inset 0 0 0 2px #ff3b2f; }
 @keyframes svHit { from { transform: scale(1); } to { transform: scale(1.07); } }
