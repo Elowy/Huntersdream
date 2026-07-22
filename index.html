@@ -69,21 +69,20 @@
         <!-- Combo streak counter: grows + reddens (to maroon) as wins stack. -->
         <span class="combo-counter" id="comboCounter"></span>
         <button class="hamburger-btn" id="hamburgerBtn" type="button" aria-label="Menü" aria-expanded="false" aria-controls="hamburgerMenu">☰</button>
+        <!-- Slide-down menu — anchored to .topbar-right so it opens under the button. -->
+        <nav class="hamburger-menu hidden" id="hamburgerMenu" aria-label="Funkciók">
+          <button id="bjBtn" class="hm-item" type="button"><span class="hm-emoji">🃏</span><span>Blackjack</span></button>
+          <button id="rlBtn" class="hm-item" type="button"><span class="hm-emoji">🎡</span><span>Rulett</span></button>
+          <button id="s2Btn" class="hm-item" type="button"><span class="hm-emoji">🎰</span><span>Lucky Sevens</span></button>
+          <button id="boardBtn" class="hm-item" type="button"><span class="hm-emoji">🏆</span><span>Toplista</span></button>
+          <button id="statsBtn" class="hm-item" type="button"><span class="hm-emoji">📊</span><span>Statisztika</span></button>
+          <button id="turboBtn" class="hm-item" type="button"><span class="hm-emoji">⚡</span><span>Villám mód</span></button>
+          <button id="musicBtn" class="hm-item" type="button"><span class="hm-emoji">🎵</span><span>Háttérzene</span></button>
+          <button id="muteBtn" class="hm-item" type="button"><span class="hm-emoji" id="muteIcon">🔊</span><span>Hang</span></button>
+          <button id="rulesBtn" class="hm-item" type="button"><span class="hm-emoji">📖</span><span>Szabályok</span></button>
+        </nav>
       </div>
     </header>
-
-    <!-- Slide-down menu holding all the secondary functions. -->
-    <nav class="hamburger-menu hidden" id="hamburgerMenu" aria-label="Funkciók">
-      <button id="bjBtn" class="hm-item" type="button"><span class="hm-emoji">🃏</span><span>Blackjack</span></button>
-      <button id="rlBtn" class="hm-item" type="button"><span class="hm-emoji">🎡</span><span>Rulett</span></button>
-      <button id="s2Btn" class="hm-item" type="button"><span class="hm-emoji">🎰</span><span>Lucky Sevens</span></button>
-      <button id="boardBtn" class="hm-item" type="button"><span class="hm-emoji">🏆</span><span>Toplista</span></button>
-      <button id="statsBtn" class="hm-item" type="button"><span class="hm-emoji">📊</span><span>Statisztika</span></button>
-      <button id="turboBtn" class="hm-item" type="button"><span class="hm-emoji">⚡</span><span>Villám mód</span></button>
-      <button id="musicBtn" class="hm-item" type="button"><span class="hm-emoji">🎵</span><span>Háttérzene</span></button>
-      <button id="muteBtn" class="hm-item" type="button"><span class="hm-emoji" id="muteIcon">🔊</span><span>Hang</span></button>
-      <button id="rulesBtn" class="hm-item" type="button"><span class="hm-emoji">📖</span><span>Szabályok</span></button>
-    </nav>
 
     <!-- Engagement info strip: level + XP -->
     <div class="infobar">
