@@ -1653,15 +1653,15 @@ const CARD_SUITS = [
  * only enabled while there is a win to gamble. Otherwise it sits inactive
  * (disabled) so the panels never reflow. All three games share one balance,
  * so a win on any of them can be gambled from that game's own button. */
-const GAMBLE_BTN_IDS = ['#gambleBtn', '#bjGambleBtn', '#rlGambleBtn'];
+const GAMBLE_BTN_IDS = ['#gambleBtn', '#bjGambleBtn', '#rlGambleBtn', '#s2GambleBtn'];
 function setGambleButtons(enabled) {
   const label = enabled ? ' — ' + fmt(state.gambleAmount) + ' €' : '';
   for (const id of GAMBLE_BTN_IDS) {
     const btn = $(id); if (btn) btn.disabled = !enabled;
   }
-  const amt = $('#gambleAmt'); if (amt) amt.textContent = label;
-  const bjAmt = $('#bjGambleAmt'); if (bjAmt) bjAmt.textContent = label;
-  const rlAmt = $('#rlGambleAmt'); if (rlAmt) rlAmt.textContent = label;
+  ['#gambleAmt', '#bjGambleAmt', '#rlGambleAmt', '#s2GambleAmt'].forEach((id) => {
+    const el = $(id); if (el) el.textContent = label;
+  });
 }
 function offerGamble(amount) {
   if (amount <= 0 || state.inFreeGame || state.inGoldGame) { clearGamble(); return; }
