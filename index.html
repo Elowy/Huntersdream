@@ -84,14 +84,6 @@
       </div>
     </header>
 
-    <!-- Engagement info strip: level + XP -->
-    <div class="infobar">
-      <button class="ib-level" id="levelChip" type="button" title="Szint & statisztika">
-        <span class="ib-lvl">Lv <b id="lvlNum">1</b></span>
-        <span class="ib-xp"><i id="xpFill"></i></span>
-      </button>
-    </div>
-
     <!-- Free spins banner -->
     <div id="freeBanner" class="free-banner hidden">
       <span class="fb-title">INGYENES JÁTÉKOK</span>
@@ -377,8 +369,6 @@
             a <b>teljes nyereményt</b> szorozza.
             <b>3 vagy több GOLD</b> a pályán <b>5 pörgetést</b> indít, amelyben
             <b>több WILD</b> jelenik meg.</li>
-        <li><b>⭐ Szint & XP:</b> pörgetésekért XP jár; szintlépéskor
-            <b>kredit-jutalmat</b> kapsz.</li>
         <li><b>DUPLÁZÁS:</b> nyeremény után (a <b>bónusznyeremény</b> is)
             kockáztathatsz — találd el a lap <b>színét</b> (piros/fekete) a
             nyereményed <b>×2</b>-éért, a pontos <b>szimbólumot</b> (♥ ♦ ♠ ♣)
@@ -503,14 +493,11 @@
         <div class="stat-cell"><span class="sc-label">Legnagyobb nyeremény</span><span class="sc-value" id="stBiggest">0.00 €</span></div>
         <div class="stat-cell"><span class="sc-label">Leghosszabb sorozat</span><span class="sc-value" id="stStreak">0</span></div>
         <div class="stat-cell"><span class="sc-label">Tapasztalati RTP</span><span class="sc-value" id="stRtp">—</span></div>
-        <div class="stat-cell"><span class="sc-label">Szint</span><span class="sc-value" id="stLevel">1</span></div>
       </div>
       <p class="rtp-note">A tapasztalati RTP a saját eddigi nyereményed a megtett téthez képest — rövid távon erősen ingadozik, hosszú távon a beállított szint felé tart.</p>
     </div>
   </div>
 
-  <!-- Toast: level-up / mission notifications (non-blocking) -->
-  <div class="toast" id="toast"></div>
 
   <script src="js/sound.js"></script>
   <script src="js/symbols.js"></script>
