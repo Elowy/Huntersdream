@@ -1568,7 +1568,16 @@ function updateGambleSelUI() {
   const rb = $('#gRed'), bb = $('#gBlack');
   if (rb) rb.classList.toggle('sel', gambleSel.color === 'red');
   if (bb) bb.classList.toggle('sel', gambleSel.color === 'black');
-  document.querySelectorAll('#gambleModal .g-suit').forEach((b) => b.classList.toggle('sel', gambleSel.suit === b.dataset.suit));
+  // When a colour (piros/fekete) is picked, only that colour's suits stay
+  // offered as selectable — the mismatching two are hidden.
+  document.querySelectorAll('#gambleModal .g-suit').forEach((b) => {
+    b.classList.toggle('sel', gambleSel.suit === b.dataset.suit);
+    const suitRed = b.classList.contains('red');
+    const mismatch = gambleSel.color != null && (gambleSel.color === 'red') !== suitRed;
+    b.style.display = mismatch ? 'none' : '';
+    if (mismatch) b.disabled = true;
+    else if (!gambleBusy) b.disabled = false;
+  });
   document.querySelectorAll('#gambleModal .g-rank').forEach((b) => b.classList.toggle('sel', gambleSel.rank === b.dataset.rank));
   const m = combinedMult();
   const combo = $('#gCombo'); if (combo) combo.textContent = '×' + (m > 0 ? m : 1);
@@ -1579,6 +1588,12 @@ function resetGambleSel() { gambleSel = { color: null, suit: null, rank: null };
 function toggleGambleSel(group, value) {
   if (gambleBusy) return;
   gambleSel[group] = (gambleSel[group] === value ? null : value);
+  // A picked colour restricts the suit to that colour — drop a now-mismatching
+  // suit so only the connected figures remain in play.
+  if (group === 'color' && gambleSel.color && gambleSel.suit) {
+    const suitRed = gambleSel.suit === '♥' || gambleSel.suit === '♦';
+    if ((gambleSel.color === 'red') !== suitRed) gambleSel.suit = null;
+  }
   updateGambleSelUI();
 }
 /* Draw one card for the current parlay selection (summed multipliers). */
