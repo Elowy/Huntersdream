@@ -1559,10 +1559,18 @@ let gambleBusy = false;   // gamble history persists in state.gambleHistory (las
  * chosen multipliers are SUMMED. All selected guesses must match to win. */
 let gambleSel = { color: null, suit: null, rank: null };
 const GAMBLE_MULTS = { color: 2, suit: 4, rank: 13 };
+/* Odds-based combined multiplier: it equals 52 / (number of cards in a 52-card
+ * deck that match the guess), so the gamble pays the true odds of the pick.
+ * A suit already fixes its colour, so colour is redundant once a suit is
+ * chosen — the "hely" (colour/suit) part is ×4 for a suit, ×2 for a colour,
+ * ×1 for neither; the rank part is ×13 or ×1. Products:
+ *   colour 2 · suit 4 · rank 13 · colour+rank 26 · suit+rank 52.
+ * Returns 0 when nothing meaningful is picked (draw stays disabled). */
 function combinedMult() {
-  return (gambleSel.color ? GAMBLE_MULTS.color : 0)
-    + (gambleSel.suit ? GAMBLE_MULTS.suit : 0)
-    + (gambleSel.rank ? GAMBLE_MULTS.rank : 0);
+  const loc = gambleSel.suit ? GAMBLE_MULTS.suit : (gambleSel.color ? GAMBLE_MULTS.color : 1);
+  const rank = gambleSel.rank ? GAMBLE_MULTS.rank : 1;
+  const m = loc * rank;
+  return m > 1 ? m : 0;
 }
 function updateGambleSelUI() {
   const rb = $('#gRed'), bb = $('#gBlack');
@@ -1596,16 +1604,17 @@ function toggleGambleSel(group, value) {
   }
   updateGambleSelUI();
 }
-/* Draw one card for the current parlay selection (summed multipliers). */
+/* Draw one card for the current parlay selection (odds-based multiplier). */
 function gambleDraw() {
   if (gambleBusy || state.gambleAmount <= 0) return;
   const m = combinedMult();
   if (m <= 0) return;
   const sel = { color: gambleSel.color, suit: gambleSel.suit, rank: gambleSel.rank };
-  // Human-readable parlay label for the history ("szín+figura ×6").
+  // Human-readable parlay label for the history ("figura+lap ×52"). A chosen
+  // suit already fixes the colour, so it is shown as "figura" (not "szín").
   const parts = [];
-  if (sel.color) parts.push('szín');
   if (sel.suit) parts.push('figura');
+  else if (sel.color) parts.push('szín');
   if (sel.rank) parts.push('lap');
   gambleGuess({
     mult: m,
@@ -1660,7 +1669,7 @@ function openGamble() {
   const card = $('#gCard');
   card.className = 'gamble-card';
   card.innerHTML = '<span>?</span>';
-  $('#gMsg').textContent = 'Válaszd ki a színt, figurát és/vagy lapot — a szorzók összeadódnak';
+  $('#gMsg').textContent = 'Válaszd ki a színt, figurát és/vagy lapot — a szorzó az esélyekhez igazodik (szín+lap ×26, figura+lap ×52)';
   $('#gMsg').className = 'gamble-msg';
   setGambleChoicesEnabled(true);
   $('#gambleModal').classList.remove('hidden');
